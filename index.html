@@ -3,411 +3,524 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolinhas Stats Lobby - Photo Engine 😼🌐</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>ASCII_Genv4.6_LinkSupport</title>
     <style>
-        body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
-        canvas { display: block; }
-        #ui { 
-            position:fixed; top:20px; left:50%; transform:translateX(-50%); 
-            z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
-            width: 90%; max-width: 600px;
+        :root {
+            --green: #00ff41;
+            --bg: #050505;
+            --accent: #008f11;
+            --panel: #111;
+            --danger: #ff3e3e;
+            --modal-bg: rgba(0, 0, 0, 0.95);
         }
-        #stats { 
-            position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
-            border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
-            border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
-            z-index:100; line-height:1.4; pointer-events:auto; min-width: 200px;
+
+        body {
+            background-color: var(--bg);
+            color: var(--green);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
         }
-        #stats-header {
+
+        /* Viewport e Panes */
+        .viewport {
+            display: flex;
+            flex: 1;
+            padding: 15px;
+            gap: 15px;
+            overflow: hidden;
+            align-items: stretch;
+            justify-content: center;
+            background: radial-gradient(circle at center, #0a0a0a 0%, #050505 100%);
+        }
+
+        .pane {
+            flex: 1 1 auto;
             display: flex;
             flex-direction: column;
-            gap: 5px;
-            margin-bottom: 8px;
-            border-bottom: 1px solid rgba(0, 255, 0, 0.3);
-            padding-bottom: 8px;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            border: 2px solid #222;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0,0,0,1);
+            max-width: 640px;
+            min-width: 300px;
         }
-        .controls-row { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
-        .audio-btn {
-            background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
-            cursor: pointer; font-size: 8px; padding: 3px 6px; border-radius: 3px;
-            text-transform: uppercase; font-weight: bold; transition: 0.2s; flex: 1; text-align: center;
+
+        .pane label {
+            position: absolute;
+            top: 12px; left: 12px;
+            font-size: 10px;
+            background: rgba(0,0,0,0.9);
+            padding: 6px 12px;
+            border: 1px solid var(--green);
+            z-index: 100;
+            letter-spacing: 2px;
+            font-weight: bold;
         }
-        .audio-btn:hover { background: #0f0; color: #000; }
-        .audio-btn.muted { border-color: #555; color: #555; background: none; }
-        #player-list-container {
-            margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
-            max-height: 200px; overflow-y: auto; scrollbar-width: thin;
+
+        .media-layer {
+            display: none;
+            width: 100%; height: 100%;
+            justify-content: center; align-items: center;
+            opacity: 0;
+            transition: opacity 0.5s ease;
         }
-        .player-item { 
-            padding: 5px; border: 1px transparent; cursor: pointer; 
-            display: flex; justify-content: space-between; transition: 0.2s;
+
+        #src-layer video, #src-layer img {
+            width: 100%; height: 100%;
+            object-fit: contain;
         }
-        .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
-        .player-item.me { color: #fff; font-weight: bold; cursor: default; }
-        textarea#txt { 
-            padding:12px 20px; font-size:16px; border-radius:15px; border:2px solid #333; 
-            width:100%; height: 60px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
-            transition: border-color 0.3s; resize: none; font-family: sans-serif;
+
+        .placeholder {
+            color: #1a1a1a;
+            font-size: 24px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-align: center;
         }
-        .media-controls { display: flex; gap: 10px; width: 100%; justify-content: center; }
-        .media-btn {
-            background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
-            padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 11px;
-            transition: 0.2s; flex: 1; text-align: center; font-weight: bold;
+
+        canvas {
+            max-width: 100%; max-height: 100%;
+            object-fit: contain;
+            image-rendering: pixelated;
         }
-        .media-btn:hover { background: #0f0; color: #000; }
-        input[type="file"] { display: none; }
-        #multiplayer-panel {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: none; flex-direction: column; gap: 15px; align-items: center;
-            z-index: 1000; background: rgba(0,0,0,0.98); padding: 40px; border-radius: 15px;
-            border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0,255,0,0.3);
+
+        /* Sidebar */
+        .sidebar {
+            width: 340px;
+            background: var(--panel);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            border-left: 3px solid #222;
+            overflow-y: auto;
+            box-shadow: -15px 0 40px rgba(0,0,0,0.9);
+            z-index: 200;
         }
-        .mp-input { 
-            width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
-            background: #111; border: 1px solid #444; color: #0f0; text-align: center; outline: none;
+
+        .control-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 10px; text-transform: uppercase; color: #777; font-weight: 700; }
+        .stat-val { color: var(--green); float: right; font-size: 11px; background: #000; padding: 1px 6px; border: 1px solid #222; }
+
+        .btn {
+            background: #1a1a1a;
+            border: 1px solid var(--green);
+            color: var(--green);
+            padding: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 11px;
+            text-align: center;
         }
-        .btn { 
-            cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
-            border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
+
+        .btn:hover:not(:disabled) { background: var(--green); color: #000; box-shadow: 0 0 15px var(--green); }
+        .btn-start { background: #001f05; border-width: 2px; }
+        .btn-rec-active { background: var(--danger) !important; color: white !important; animation: pulse 1.5s infinite; }
+
+        input[type="text"] {
+            background: #000;
+            border: 1px solid #333;
+            color: var(--green);
+            padding: 10px;
+            font-family: monospace;
+            outline: none;
+            font-size: 12px;
         }
-        #chat-toggle {
-            position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
-            background: #0f0; border-radius: 50%; display: flex; align-items: center;
-            justify-content: center; cursor: pointer; z-index: 300; font-size: 24px; border: none;
+
+        input[type="text"]:focus { border-color: var(--green); }
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+        /* Modal de Aviso */
+        #danger-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--modal-bg);
+            z-index: 1000;
+            display: none;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(10px);
         }
-        #chat-window {
-            position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
-            background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
-            display: none; flex-direction: column; z-index: 299; overflow: hidden;
+
+        .modal-content {
+            background: #000;
+            border: 2px solid var(--danger);
+            padding: 40px;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(255, 62, 62, 0.3);
         }
-        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
-        #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
-        #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
-        .hint-text { font-size: 11px; color: #0f0; margin-top: 5px; font-weight: bold; text-shadow: 0 0 5px #000;}
+
+        #buffer { display: none; }
     </style>
 </head>
-<body>
-
-<!-- Áudio BGM -->
-<audio id="bgm-player" src="BGM.mp3" loop preload="auto"></audio>
-
-<div id="stats">
-    <div id="stats-header">
-        <div style="font-weight: bold; font-size: 10px; margin-bottom: 4px;">HUB PROTOCOL Z</div>
-        <div class="controls-row">
-            <button id="bgm-toggle" class="audio-btn" onclick="toggleBGM()">MÚSICA: ON</button>
-            <button id="sfx-toggle" class="audio-btn" onclick="toggleSFX()">SOM: ON</button>
+<body onclick="unlockAudio()">
+    <div id="danger-modal">
+        <div class="modal-content">
+            <h2 style="color:var(--danger)">⚠️ ATENÇÃO!</h2>
+            <p style="color:#ccc">O Modo de Renderização selecionado (<b>PARTÍCULAS</b>) poderá deixar o seu dispositivo <b>LENTO</b> e causar <b>CRASHES</b>.</p>
+            <p style="color:#ccc">Processamos +20.000 itens simultâneos. Prossiga por sua conta e risco!</p>
+            <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 15px;">
+                <label style="display:flex; align-items:center; gap:10px; color:#888;">
+                    <input type="checkbox" id="no-show-again"> Não mostrar novamente
+                </label>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" style="flex:1" onclick="cancelParticles()">CANCELAR</button>
+                    <button class="btn" style="flex:1; background:var(--danger); border-color:white; color:white;" onclick="confirmParticles()">CONTINUAR</button>
+                </div>
+            </div>
         </div>
     </div>
-    <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
-    <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
-    <div id="player-list-container">
-        <div id="players-list"></div>
+
+    <div class="viewport">
+        <div class="pane">
+            <label>FONTE ORIGINAL</label>
+            <div class="media-layer" id="src-layer">
+                <video id="v-core" muted playsinline crossorigin="anonymous"></video>
+                <img id="img-core" alt="preview" crossorigin="anonymous">
+            </div>
+            <div class="placeholder" id="ph-1">MÍDIA AUSENTE</div>
+        </div>
+        <div class="pane">
+            <label>SAÍDA RENDERIZADA</label>
+            <div class="media-layer" id="out-layer">
+                <canvas id="canvas-core"></canvas>
+            </div>
+            <div class="placeholder" id="ph-2">AGUARDANDO START</div>
+        </div>
     </div>
-</div>
 
-<div id="ui">
-    <textarea id="txt" placeholder="Digita algo aqui..." maxlength="150"></textarea>
-    <div class="media-controls">
-        <label class="media-btn" for="img-upload">🖼️ CARREGAR FOTO</label>
-        <input type="file" id="img-upload" accept="image/*">
-        <button class="media-btn" onclick="clearMedia()">❌ LIMPAR FOTO</button>
+    <div class="sidebar">
+        <div id="monitor">SISTEMA PRONTO</div>
+        
+        <div class="control-group">
+            <label>Link Externo (MP4 / WebM / Direct Link)</label>
+            <input type="text" id="url-input" placeholder="Cole o link do vídeo aqui...">
+            <button class="btn" onclick="loadExternalUrl()" style="margin-top:5px; padding:8px;">🔗 CARREGAR LINK</button>
+        </div>
+
+        <input type="file" id="f-selector" accept="video/*,image/*,image/gif" style="display:none">
+        <button class="btn" onclick="document.getElementById('f-selector').click()">📁 ARQUIVO LOCAL</button>
+        
+        <button class="btn btn-start" id="btn-init" disabled>▶ INICIAR ENGINE</button>
+        <hr>
+        
+        <div class="control-group">
+            <label>Modo de Renderização <span class="stat-val" id="s-style">ASCII</span></label>
+            <select id="c-style" class="btn" style="padding: 5px;" onchange="checkStyleChange(this.value)">
+                <option value="classic">ASCII CLÁSSICO</option>
+                <option value="blocks">BLOCOS DENSOS</option>
+                <option value="particles">PARTÍCULAS (CUIDADO! 🔥)</option>
+            </select>
+        </div>
+
+        <div class="control-group"><label>Resolução <span class="stat-val" id="s-rs">100</span></label><input type="range" id="c-rs" min="30" max="250" value="100"></div>
+        <div class="control-group"><label>Brilho <span class="stat-val" id="s-br">1.0</span></label><input type="range" id="c-br" min="0.5" max="2.5" step="0.1" value="1"></div>
+        <div class="control-group"><label>Saturação <span class="stat-val" id="s-col">1.0</span></label><input type="range" id="c-col" min="0" max="1" step="0.1" value="1"></div>
+        <div class="control-group"><label>Volume <span class="stat-val" id="s-vol">0.5</span></label><input type="range" id="c-vol" min="0" max="1" step="0.1" value="0.5"></div>
+        <div class="control-group"><label>FPS <span class="stat-val" id="s-fps">30</span></label><input type="range" id="c-fps" min="10" max="60" value="30"></div>
+
+        <hr>
+        <button class="btn" id="btn-rec" disabled>⏺ GRAVAR (AUTO-STOP)</button>
+        <button class="btn" id="btn-png">📸 CAPTURAR PNG</button>
     </div>
-    <div class="hint-text" id="status-hint">Modo Económico... 🌀</div>
-</div>
 
-<div id="multiplayer-panel">
-    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">ACESSO AO PROTOCOLO</div>
-    <input type="text" id="user-nick" class="mp-input" placeholder="Teu Nick">
-    <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala">
-    <button class="btn" onclick="joinLobby()">CONECTAR</button>
-</div>
-
-<button id="chat-toggle">💬</button>
-<div id="chat-window">
-    <div style="background:#0f0; color:#000; padding:5px; font-size:10px; text-align:center; font-weight:bold;">CHAT GLOBAL</div>
-    <div id="chat-messages"></div>
-    <div id="chat-input-area">
-        <input type="text" id="chat-input" placeholder="Mensagem..." autocomplete="off">
-    </div>
-</div>
-
-<canvas id="canvas"></canvas>
+    <canvas id="buffer"></canvas>
 
 <script>
-// --- MOTOR DE ÁUDIO ---
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-const bgmPlayer = document.getElementById("bgm-player");
-const bgmToggleBtn = document.getElementById("bgm-toggle");
-const sfxToggleBtn = document.getElementById("sfx-toggle");
+/**
+ * ASCII GENERATOR v4.6 - URL SUPPORT & REFINEMENTS
+ */
 
-let bgmMuted = localStorage.getItem("user_bgm_muted") === "true";
-let sfxMuted = localStorage.getItem("user_sfx_muted") === "true";
+const v = document.getElementById('v-core');
+const img = document.getElementById('img-core');
+const out = document.getElementById('canvas-core');
+const oCtx = out.getContext('2d', { alpha: false });
+const buf = document.getElementById('buffer');
+const bCtx = buf.getContext('2d', { willReadFrequently: true });
 
-function applyAudioStates() {
-    bgmPlayer.muted = bgmMuted;
-    if (bgmMuted) {
-        bgmToggleBtn.textContent = "MÚSICA: OFF";
-        bgmToggleBtn.classList.add("muted");
-        bgmPlayer.pause();
+const btnInit = document.getElementById('btn-init');
+const btnRec = document.getElementById('btn-rec');
+const monitor = document.getElementById('monitor');
+const modal = document.getElementById('danger-modal');
+
+const charMapClassic = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
+const charMapBlocks = "█▓▒░ ";
+
+let lastTick = 0;
+let currentMode = 'idle';
+let isRunning = false;
+let isRecording = false;
+let recorder = null;
+let chunks = [];
+let audioDest = null;
+let audioCtx = null;
+let lastSelectedStyle = "classic";
+
+function unlockAudio() {
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// Carregar Link Externo
+function loadExternalUrl() {
+    const url = document.getElementById('url-input').value.trim();
+    if (!url) return;
+
+    isRunning = false;
+    v.pause();
+    resetDisplay();
+
+    // Lógica básica para detectar tipo de arquivo pela extensão ou se é YouTube
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        monitor.innerText = "AVISO: Links do YouTube requerem Proxy CORS para renderização.";
+        // Nota: O YouTube bloqueia canvas direto. Para fins educacionais, tentamos carregar como vídeo.
+        // O ideal para YouTube seria usar um serviço de stream compatível ou o player IFrame.
+        v.src = url; 
     } else {
-        bgmToggleBtn.textContent = "MÚSICA: ON";
-        bgmToggleBtn.classList.remove("muted");
-        if (isConnected) bgmPlayer.play().catch(() => {});
+        currentMode = 'video';
+        v.src = url;
+        v.load();
     }
-    sfxToggleBtn.textContent = sfxMuted ? "SOM: OFF" : "SOM: ON";
-    sfxMuted ? sfxToggleBtn.classList.add("muted") : sfxToggleBtn.classList.remove("muted");
-}
 
-function toggleBGM() { bgmMuted = !bgmMuted; localStorage.setItem("user_bgm_muted", bgmMuted); applyAudioStates(); }
-function toggleSFX() { sfxMuted = !sfxMuted; localStorage.setItem("user_sfx_muted", sfxMuted); applyAudioStates(); }
-
-function playBeep(freq, vol, duration) {
-    if (sfxMuted) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + duration);
-}
-
-// --- CORE DO SISTEMA ---
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const inputTxt = document.getElementById("txt");
-const mpPanel = document.getElementById("multiplayer-panel");
-const playersListDiv = document.getElementById("players-list");
-const statusHint = document.getElementById("status-hint");
-
-let peer, connections = {};
-let myId = "", userName = "", isConnected = false;
-let localParticles = [];
-const amount = 25000; 
-let isExplodingLocal = false;
-let isIdle = true; 
-let frenzyTimer = 0; 
-let currentImg = null;
-
-const offCanvas = document.createElement("canvas");
-const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
-
-function generateID() { return Math.random().toString(36).substr(2, 5).toUpperCase(); }
-
-async function joinLobby() {
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-    if (!bgmMuted) { bgmPlayer.volume = 0.4; bgmPlayer.play().catch(() => {}); }
-
-    userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
-    let roomId = document.getElementById("target-id").value.trim().toUpperCase();
-    myId = roomId || generateID();
+    v.onloadedmetadata = () => {
+        btnInit.disabled = false;
+        monitor.innerText = "LINK CARREGADO";
+    };
     
-    peer = new Peer("BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_'));
-    peer.on('open', () => {
-        document.getElementById("room-id-display").textContent = myId;
-        document.getElementById("peer-status").textContent = "ONLINE";
-        document.getElementById("peer-status").style.color = "#0f0";
-        isConnected = true;
-        mpPanel.style.display = "none";
-        updatePlayerList();
-        playBeep(440, 0.1, 0.2);
+    v.onerror = () => {
+        // Tenta como imagem se falhar como vídeo
+        currentMode = 'image';
+        img.src = url;
+        img.onload = () => {
+            btnInit.disabled = false;
+            monitor.innerText = "IMAGEM EXTERNA CARREGADA";
+        };
+        img.onerror = () => monitor.innerText = "ERRO AO CARREGAR LINK (CORS?)";
+    };
+}
+
+function resetDisplay() {
+    document.querySelectorAll('.media-layer').forEach(l => {
+        l.style.display = 'none';
+        l.style.opacity = '0';
     });
-    peer.on('connection', setupConnection);
+    document.querySelectorAll('.placeholder').forEach(p => p.style.display = 'flex');
 }
 
-function setupConnection(conn) {
-    const peerName = conn.peer.split('_').pop();
-    connections[conn.peer] = { conn, name: peerName };
-    conn.on('open', () => { updatePlayerList(); conn.send({ type: 'handshake', name: userName }); });
-    conn.on('data', (data) => {
-        if (data.type === 'chat') { appendMessage(data.user, data.msg); playBeep(880, 0.05, 0.05); }
-        if (data.type === 'handshake') { connections[conn.peer].name = data.name; updatePlayerList(); }
-    });
-    conn.on('close', () => { delete connections[conn.peer]; updatePlayerList(); });
-}
-
-function updatePlayerList() {
-    playersListDiv.innerHTML = `<div class="player-item me">${userName} (VOCÊ)</div>`;
-    Object.keys(connections).forEach(id => {
-        const div = document.createElement("div");
-        div.className = "player-item";
-        div.textContent = connections[id].name;
-        playersListDiv.appendChild(div);
-    });
-}
-
-function appendMessage(u, m) {
-    const div = document.createElement("div");
-    div.innerHTML = `<strong>${u}:</strong> ${m}`;
-    const box = document.getElementById("chat-messages");
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-}
-
-document.getElementById("chat-toggle").onclick = () => {
-    const win = document.getElementById("chat-window");
-    win.style.display = win.style.display === "flex" ? "none" : "flex";
+v.onended = () => {
+    monitor.innerText = "MÍDIA FINALIZADA";
+    isRunning = false;
+    if (isRecording) stopRecording();
 };
 
-// --- MOTOR DE PARTÍCULAS ---
-class Particle {
-    constructor(i) {
-        this.index = i;
-        this.reset();
-    }
-    reset() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.dest = { x: this.x, y: this.y };
-        this.vx = 0; this.vy = 0;
-        this.r = Math.random() * 1.2 + 0.8;
-        this.color = "rgba(0, 255, 0, 1)";
-        this.targetColor = this.color;
-        this.idleAngle = (this.index / amount) * Math.PI * 2;
-    }
-    update() {
-        if (frenzyTimer > 0) {
-            this.x += (Math.random() - 0.5) * 4;
-            this.y += (Math.random() - 0.5) * 4;
-            const h = (Date.now() / 5 + this.index) % 360;
-            ctx.fillStyle = `hsla(${h}, 100%, 50%, 1)`;
-        } else {
-            const ease = isIdle ? 45 : 12;
-            this.vx = (this.dest.x - this.x) / ease;
-            this.vy = (this.dest.y - this.y) / ease;
-            this.x += this.vx; this.y += this.vy;
-            ctx.fillStyle = this.targetColor;
-        }
-        ctx.fillRect(this.x, this.y, this.r, this.r);
+function checkStyleChange(val) {
+    if (val === 'particles') {
+        if (!localStorage.getItem('skipParticleWarning')) modal.style.display = 'flex';
+    } else {
+        lastSelectedStyle = val;
     }
 }
 
-function handleSync() {
-    const text = inputTxt.value.trim();
-    if (!text && !currentImg) {
-        isIdle = true;
-        statusHint.textContent = "Protocolo em Repouso... 🌀";
-        const cx = canvas.width / 2, cy = canvas.height / 2;
-        const radius = Math.min(canvas.width, canvas.height) * 0.35;
-        localParticles.forEach(p => {
-            p.dest.x = cx + Math.cos(p.idleAngle) * radius;
-            p.dest.y = cy + Math.sin(p.idleAngle) * radius;
-            p.targetColor = "rgba(0, 80, 0, 0.5)";
-        });
+function confirmParticles() {
+    if (document.getElementById('no-show-again').checked) localStorage.setItem('skipParticleWarning', 'true');
+    modal.style.display = 'none';
+    lastSelectedStyle = 'particles';
+}
+
+function cancelParticles() {
+    modal.style.display = 'none';
+    document.getElementById('c-style').value = lastSelectedStyle;
+    updateBadges();
+}
+
+function updateBadges() {
+    document.querySelectorAll('input[type=range]').forEach(i => {
+        const b = document.getElementById('s-'+i.id.split('-')[1]);
+        if(b) b.innerText = i.value;
+    });
+    if (v && currentMode === 'video') v.volume = document.getElementById('c-vol').value;
+}
+
+document.getElementById('f-selector').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    isRunning = false;
+    v.pause();
+    resetDisplay();
+
+    const url = URL.createObjectURL(file);
+    if (file.type.startsWith('video')) {
+        currentMode = 'video';
+        v.src = url;
+        v.loop = false;
+        v.onloadedmetadata = () => { btnInit.disabled = false; monitor.innerText = "ARQUIVO CARREGADO"; };
+    } else {
+        currentMode = file.type === 'image/gif' ? 'gif' : 'image';
+        img.src = url;
+        img.onload = () => { btnInit.disabled = false; monitor.innerText = "IMAGEM CARREGADA"; };
+    }
+};
+
+async function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaElementSource(v);
+        audioDest = audioCtx.createMediaStreamDestination();
+        source.connect(audioCtx.destination);
+        source.connect(audioDest);
+    }
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+}
+
+function processFrame() {
+    if (!isRunning && currentMode === 'video') return;
+    const source = currentMode === 'video' ? v : img;
+    const res = parseInt(document.getElementById('c-rs').value);
+    const colorVal = parseFloat(document.getElementById('c-col').value);
+    const style = document.getElementById('c-style').value;
+    
+    const sw = source.videoWidth || source.naturalWidth || 100;
+    const sh = source.videoHeight || source.naturalHeight || 100;
+    const w = res;
+    const h = Math.round(res * (sh / sw) * 0.5);
+
+    buf.width = w; buf.height = h;
+    bCtx.filter = `brightness(${document.getElementById('c-br').value}) grayscale(${1 - colorVal})`;
+    try {
+        bCtx.drawImage(source, 0, 0, w, h);
+    } catch(e) {
+        monitor.innerText = "ERRO DE RENDERIZAÇÃO (CORS)";
+        isRunning = false;
         return;
     }
 
-    isIdle = false;
-    statusHint.textContent = currentImg ? "Renderizando Visual... 🖼️" : "Processando Código... ✍️";
-    
-    // Configura canvas de processamento
-    offCanvas.width = canvas.width;
-    offCanvas.height = canvas.height;
-    offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+    const pixels = bCtx.getImageData(0, 0, w, h).data;
+    const cellW = 8, cellH = 10;
+    out.width = w * cellW; out.height = h * cellH;
+    oCtx.fillStyle = "#000"; oCtx.fillRect(0, 0, out.width, out.height);
 
-    if (currentImg) {
-        // CORREÇÃO DE PROPORÇÃO (RESPEITA ASPECT RATIO)
-        const canvasRatio = canvas.width / canvas.height;
-        const imgRatio = currentImg.width / currentImg.height;
-        
-        let drawW, drawH;
-        if (imgRatio > canvasRatio) {
-            drawW = canvas.width * 0.95;
-            drawH = drawW / imgRatio;
-        } else {
-            drawH = canvas.height * 0.85;
-            drawW = drawH * imgRatio;
+    if (style !== 'particles') {
+        oCtx.font = `bold 10px monospace`;
+        oCtx.textBaseline = "top";
+        const activeMap = (style === 'blocks') ? charMapBlocks : charMapClassic;
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+                const avg = (r * 0.299 + g * 0.587 + b * 0.114);
+                const charIdx = Math.floor((avg / 256) * activeMap.length);
+                oCtx.fillStyle = (colorVal > 0.1) ? `rgb(${r},${g},${b})` : `rgb(${avg},${avg},${avg})`;
+                oCtx.fillText(activeMap[charIdx] || " ", x * cellW, y * cellH);
+            }
         }
-
-        const startX = (canvas.width - drawW) / 2;
-        const startY = (canvas.height - drawH) / 2;
-        
-        offCtx.drawImage(currentImg, startX, startY, drawW, drawH);
     } else {
-        const lines = text.split("\n");
-        const fontSize = Math.min(canvas.width / 10, canvas.height / (lines.length * 1.5), 160);
-        offCtx.font = `bold ${fontSize}px sans-serif`;
-        offCtx.fillStyle = "white";
-        offCtx.textAlign = "center";
-        offCtx.textBaseline = "middle";
-        lines.forEach((l, i) => {
-            const y = (canvas.height / 2) - ((lines.length - 1) * fontSize * 0.6) + (i * fontSize * 1.2);
-            offCtx.fillText(l, canvas.width / 2, y);
-        });
-    }
-
-    const imgData = offCtx.getImageData(0, 0, canvas.width, canvas.height).data;
-    const points = [];
-    const step = 2; 
-
-    for (let y = 0; y < canvas.height; y += step) {
-        for (let x = 0; x < canvas.width; x += step) {
-            const i = (y * canvas.width + x) * 4;
-            if (imgData[i + 3] > 128) {
-                points.push({ x, y, r: imgData[i], g: imgData[i+1], b: imgData[i+2] });
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const i = (y * w + x) * 4;
+                const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
+                const avg = (r * 0.299 + g * 0.587 + b * 0.114);
+                if (avg > 20) {
+                    const radius = (avg / 255) * (cellW / 2) * 1.5;
+                    oCtx.beginPath();
+                    oCtx.arc(x * cellW + cellW/2, y * cellH + cellH/2, radius, 0, Math.PI * 2);
+                    oCtx.fillStyle = (colorVal > 0.1) ? `rgb(${r},${g},${b})` : `rgb(${avg},${avg},${avg})`;
+                    oCtx.fill();
+                }
             }
         }
     }
+}
 
-    if (points.length > 0) {
-        localParticles.forEach((p, i) => {
-            const pt = points[i % points.length];
-            p.dest.x = pt.x;
-            p.dest.y = pt.y;
-            p.targetColor = `rgb(${pt.r}, ${pt.g}, ${pt.b})`;
-        });
+function mainLoop(now) {
+    if (!isRunning) return;
+    const interval = 1000 / parseInt(document.getElementById('c-fps').value);
+    if (now - lastTick >= interval) {
+        processFrame();
+        lastTick = now;
     }
+    requestAnimationFrame(mainLoop);
 }
 
-// --- CONTROLES DE MEDIA ---
-document.getElementById('img-upload').onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        const img = new Image();
-        img.onload = () => { currentImg = img; handleSync(); };
-        img.src = ev.target.result;
+btnInit.onclick = async () => {
+    unlockAudio();
+    isRunning = true;
+    document.querySelectorAll('.placeholder').forEach(p => p.style.display = 'none');
+    document.querySelectorAll('.media-layer').forEach(l => {
+        l.style.display = 'flex';
+        setTimeout(() => l.style.opacity = '1', 50);
+    });
+
+    if (currentMode === 'video') {
+        await initAudio();
+        v.muted = false;
+        v.play().catch(e => monitor.innerText = "ERRO AO REPRODUZIR");
+        btnRec.disabled = false;
+    }
+    monitor.innerText = "RENDERIZANDO...";
+    requestAnimationFrame(mainLoop);
+};
+
+function stopRecording() {
+    isRecording = false;
+    if (recorder) recorder.stop();
+    btnRec.innerText = "⏺ GRAVAR (AUTO-STOP)";
+    btnRec.classList.remove('btn-rec-active');
+    monitor.innerText = "DOWNLOAD INICIADO";
+}
+
+btnRec.onclick = async () => {
+    if (!isRecording) {
+        if (currentMode === 'video') {
+            v.pause(); v.currentTime = 0;
+            await new Promise(r => setTimeout(r, 100));
+            v.play(); isRunning = true;
+            requestAnimationFrame(mainLoop);
+        }
+        isRecording = true; chunks = [];
+        const stream = out.captureStream(parseInt(document.getElementById('c-fps').value));
+        const combined = audioDest ? new MediaStream([...stream.getVideoTracks(), ...audioDest.stream.getAudioTracks()]) : stream;
+        recorder = new MediaRecorder(combined, { mimeType: 'video/webm;codecs=vp8' });
+        recorder.ondataavailable = e => chunks.push(e.data);
+        recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `ASCII_STREAM_${Date.now()}.webm`;
+            a.click();
+        };
+        recorder.start();
+        btnRec.innerText = "⏹ PARAR GRAVAÇÃO";
+        btnRec.classList.add('btn-rec-active');
+        monitor.innerText = "GRAVANDO STREAM...";
+    } else {
+        stopRecording();
+    }
+};
+
+document.getElementById('btn-png').onclick = () => {
+    const link = document.createElement('a');
+    link.download = `ASCII_SNAP_${Date.now()}.png`;
+    link.href = out.toDataURL('image/png');
+    link.click();
+};
+
+document.querySelectorAll('input, select').forEach(el => {
+    el.oninput = () => {
+        updateBadges();
+        if (currentMode !== 'video' && isRunning) processFrame();
     };
-    reader.readAsDataURL(file);
-};
+});
 
-function clearMedia() { 
-    currentImg = null; 
-    document.getElementById('img-upload').value = ""; 
-    handleSync(); 
-}
-
-inputTxt.oninput = handleSync;
-
-function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    handleSync();
-}
-
-function loop() {
-    ctx.fillStyle = "rgba(10, 10, 10, 0.35)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    if (frenzyTimer > 0) frenzyTimer--;
-    localParticles.forEach(p => p.update());
-    requestAnimationFrame(loop);
-}
-
-window.addEventListener('resize', resize);
-for(let i=0; i<amount; i++) localParticles.push(new Particle(i));
-
-window.onload = () => { 
-    applyAudioStates();
-    resize();
-    loop();
-};
+updateBadges();
 </script>
 </body>
 </html>
