@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bolinhas Stats Multiplayer 😼🌐</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+    body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; }
+    
+    #ui { 
+        position:fixed; top:30px; left:50%; transform:translateX(-50%); 
+        z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
+    }
+
+    #stats { 
+        position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
+        border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
+        border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
+        z-index:100; line-height:1.4; pointer-events:auto;
+    }
+
+    input { 
+        padding:12px 20px; font-size:18px; border-radius:50px; border:2px solid #333; 
+        width:350px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
+        transition: border-color 0.3s;
+    }
+    input:focus { border-color: #0f0; }
+
+    #multiplayer-panel {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        display: none; flex-direction: column; gap: 15px; align-items: center;
+        z-index: 500; background: rgba(0,0,0,0.95); padding: 30px; border-radius: 15px;
+        border: 2px solid #0f0; box-shadow: 0 0 30px rgba(0,255,0,0.5);
+    }
+
+    .mp-input { 
+        width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
+        background: #111; border: 1px solid #444; color: #0f0; text-align: center;
+        outline: none;
+    }
+
+    .btn { 
+        cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
+        border: none; border-radius: 5px; font-weight: bold; font-size: 16px;
+        transition: all 0.2s; width: 100%;
+    }
+
+    #chat-toggle {
+        position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
+        background: #0f0; border-radius: 50%; display: flex; align-items: center;
+        justify-content: center; cursor: pointer; z-index: 300; box-shadow: 0 0 20px rgba(0,255,0,0.4);
+        font-size: 24px; border: none;
+    }
+
+    #chat-window {
+        position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
+        background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
+        display: none; flex-direction: column; z-index: 299; overflow: hidden;
+        box-shadow: 0 0 30px rgba(0,255,0,0.1);
+    }
+
+    #chat-header { background: #0f0; color: #000; padding: 8px; font-weight: bold; font-size: 10px; text-align: center; letter-spacing: 1px;}
+    
+    #chat-messages { flex: 1; padding: 10px; overflow-y: auto; color: #0f0; font-size: 13px; scrollbar-width: thin; }
+    #chat-messages::-webkit-scrollbar { width: 4px; }
+    #chat-messages::-webkit-scrollbar-thumb { background: #0f0; }
+
+    #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; background: #000; }
+    #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; font-size: 14px; }
+
+    .msg-line { margin-bottom: 8px; word-break: break-all; }
+    .msg-user { color: #fff; font-weight: bold; }
+
+    #copy-notice {
+        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+        background: #0f0; color: #000; padding: 5px 15px; border-radius: 20px;
+        font-size: 12px; font-weight: bold; display: none; z-index: 1000;
+    }
+</style>
+</head>
+<body>
+
+<div id="stats">
+    <div style="border-bottom: 1px solid #0f0; margin-bottom: 5px; padding-bottom: 5px;">ULTRA SECURE MULTIPLAYER</div>
+    <div>SALA (ID): <span id="my-id" style="color:white; font-weight:bold; letter-spacing:2px;">---</span></div>
+    <div>STATUS: <span id="peer-status" style="color:yellow">OFFLINE</span></div>
+    <hr style="border:0; border-top:1px solid #333">
+    <div>RAM: <span id="ram-val">N/A</span></div>
+    <div>FPS: <span id="fps-val">0</span></div>
+</div>
+
+<div id="ui">
+    <div class="input-container">
+        <input type="text" id="txt" placeholder="Digite para desenhar..." maxlength="100">
+    </div>
+</div>
+
+<div id="multiplayer-panel">
+    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">SISTEMA MULTIPLAYER P2P</div>
+    <input type="text" id="user-nick" class="mp-input" placeholder="Nome de Usuário">
+    <input type="text" id="target-id" class="mp-input" placeholder="Código da Sala">
+    <button id="mp-btn" class="btn" onclick="handleMPAction()">ENTRAR/CRIAR</button>
+    <div style="color:#666; font-size:10px; margin-top:10px;">Deixe o código vazio para criar uma nova sala.</div>
+</div>
+
+<button id="chat-toggle">💬</button>
+
+<div id="chat-window">
+    <div id="chat-header">PROTOCOL_Z: ENCRYPTED_CHANNEL</div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Mensagem..." autocomplete="off">
+    </div>
+</div>
+
+<div id="copy-notice">CÓDIGO COPIADO! 📋</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const inputTxt = document.getElementById("txt");
+const uiBox = document.getElementById("ui");
+const mpPanel = document.getElementById("multiplayer-panel");
+const mpBtn = document.getElementById("mp-btn");
+const nickInput = document.getElementById("user-nick");
+const targetInput = document.getElementById("target-id");
+const chatToggle = document.getElementById("chat-toggle");
+const chatWindow = document.getElementById("chat-window");
+const chatMessages = document.getElementById("chat-messages");
+const chatInput = document.getElementById("chat-input");
+
+const tCanvas = document.createElement("canvas");
+const tCtx = tCanvas.getContext("2d", { willReadFrequently: true });
+
+let particles = [];
+const amount = 3000; 
+let userName = "Anon";
+let peer, conn;
+let isConnected = false;
+
+// --- CRYPTO SUITE: PROTOCOL Z (10 LAYERS) ---
+
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ";
+
+const atbash = (str) => str.split('').map(c => {
+    const i = ALPHABET.indexOf(c);
+    return i === -1 ? c : ALPHABET[ALPHABET.length - 1 - i];
+}).join('');
+
+const caesar = (str, shift) => str.split('').map(c => {
+    const i = ALPHABET.indexOf(c);
+    return i === -1 ? c : ALPHABET[(i + shift + ALPHABET.length * 10) % ALPHABET.length];
+}).join('');
+
+const vigenere = (str, key, decrypt = false) => {
+    let result = "";
+    for (let i = 0, j = 0; i < str.length; i++) {
+        const c = str[i];
+        const k = key[j % key.length];
+        const cIdx = ALPHABET.indexOf(c);
+        const kIdx = ALPHABET.indexOf(k);
+        if (cIdx === -1) { result += c; continue; }
+        const shift = decrypt ? -kIdx : kIdx;
+        result += ALPHABET[(cIdx + shift + ALPHABET.length * 10) % ALPHABET.length];
+        j++;
+    }
+    return result;
+};
+
+const polybius = (str, decrypt = false) => {
+    if (!decrypt) {
+        return str.split('').map(c => {
+            const i = ALPHABET.indexOf(c);
+            if (i === -1) return "??";
+            const row = Math.floor(i / 8);
+            const col = i % 8;
+            return `${row}${col}`;
+        }).join('');
+    } else {
+        let result = "";
+        for (let i = 0; i < str.length; i += 2) {
+            const row = parseInt(str[i]);
+            const col = parseInt(str[i+1]);
+            result += ALPHABET[row * 8 + col] || "";
+        }
+        return result;
+    }
+};
+
+const b64e = (str) => btoa(unescape(encodeURIComponent(str)));
+const b64d = (str) => decodeURIComponent(escape(atob(str)));
+
+function x10Encrypt(user, text) {
+    let data = `<$${user}>:<$${text}>`;
+    data = atbash(data);
+    data = caesar(data, 5);
+    data = vigenere(data, user);
+    data = b64e(data);
+    data = polybius(data);
+    data = caesar(data, -3);
+    data = atbash(data);
+    data = b64e(data);
+    data = caesar(data, 13);
+    data = b64e(data);
+    return data;
+}
+
+function x10Decrypt(packet, userKey) {
+    let data = packet;
+    try {
+        data = b64d(data);
+        data = caesar(data, -13);
+        data = b64d(data);
+        data = atbash(data);
+        data = caesar(data, 3);
+        data = polybius(data, true);
+        data = b64d(data);
+        data = vigenere(data, userKey, true);
+        data = caesar(data, -5);
+        data = atbash(data);
+        const match = data.match(/<\$(.*?)>:<\$(.*?)>/);
+        if (match) return { user: match[1], msg: match[2] };
+    } catch(e) {}
+    return { user: "PROTOCOL_Z", msg: "[DECRYPT_ERROR]" };
+}
+
+// --- APP LOGIC ---
+
+function appendMessage(displayUser, displayMsg) {
+    const div = document.createElement("div");
+    div.className = "msg-line";
+    div.innerHTML = `<span class="msg-user">${displayUser}</span>: ${displayMsg}`;
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+chatInput.onkeydown = (e) => {
+    if (e.key === "Enter") {
+        if (!isConnected) {
+            mpPanel.style.display = "flex";
+            chatInput.value = "";
+            return;
+        }
+
+        const rawMsg = chatInput.value.trim();
+        if (rawMsg) {
+            appendMessage(userName, rawMsg);
+            if (conn) {
+                const packet = x10Encrypt(userName, rawMsg);
+                conn.send({ type: 'chat_packet', data: packet, sender: userName });
+            }
+            chatInput.value = "";
+        }
+    }
+};
+
+chatToggle.onclick = () => {
+    chatWindow.style.display = chatWindow.style.display === "flex" ? "none" : "flex";
+    if (chatWindow.style.display === "flex") chatInput.focus();
+};
+
+function handleMPAction() {
+    userName = nickInput.value.trim() || "User" + Math.floor(Math.random()*999);
+    const code = targetInput.value.trim();
+    if (code) initPeer(() => connectToPeer(code));
+    else initPeer();
+    mpPanel.style.display = "none";
+}
+
+function initPeer(callback) {
+    if (peer) return;
+    // Tenta usar o ID do código da sala se for fornecido (para bater com o código)
+    const code = targetInput.value.trim();
+    const shortId = code || generateShortID();
+    
+    peer = new Peer(shortId);
+    peer.on('open', (id) => { 
+        document.getElementById("my-id").textContent = id; 
+        if (!code) copyToClipboard(id); 
+        isConnected = true;
+        if (callback) callback(); 
+        else {
+            document.getElementById("peer-status").textContent = "WAITING...";
+            document.getElementById("peer-status").style.color = "cyan";
+        }
+    });
+    
+    peer.on('connection', (connection) => { 
+        conn = connection; 
+        setupConn(); 
+        document.getElementById("peer-status").textContent = "HOSTED"; 
+        document.getElementById("peer-status").style.color = "#0f0";
+    });
+}
+
+function connectToPeer(targetId) {
+    if (!peer) return;
+    conn = peer.connect(targetId);
+    setupConn();
+    conn.on('open', () => { 
+        document.getElementById("peer-status").textContent = "CONNECTED"; 
+        document.getElementById("peer-status").style.color = "#0f0";
+        isConnected = true;
+    });
+}
+
+function setupConn() {
+    conn.on('data', (payload) => {
+        if (payload.type === 'sync') remoteMouse = payload.mouse;
+        if (payload.type === 'chat_packet') {
+            const decrypted = x10Decrypt(payload.data, payload.sender);
+            appendMessage(decrypted.user, decrypted.msg);
+        }
+        if (payload.type === 'text') { inputTxt.value = payload.value; scanText(); }
+    });
+}
+
+function generateShortID() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let r = ''; for (let i = 0; i < 5; i++) r += chars.charAt(Math.floor(Math.random() * chars.length));
+    return r;
+}
+
+function copyToClipboard(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    const notice = document.getElementById("copy-notice");
+    notice.style.display = "block";
+    setTimeout(() => notice.style.display = "none", 2000);
+    document.body.removeChild(textArea);
+}
+
+// --- ENGINE ---
+class Particle {
+    constructor(i) {
+        this.index = i;
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.dest = { x: this.x, y: this.y };
+        this.vx = 0; this.vy = 0;
+        this.r = Math.random() * 1.5 + 0.5;
+        this.baseHue = Math.random() * 360;
+    }
+    update() {
+        const accX = (this.dest.x - this.x) / 25;
+        const accY = (this.dest.y - this.y) / 25;
+        this.vx = (this.vx + accX) * 0.75;
+        this.vy = (this.vy + accY) * 0.75;
+        this.x += this.vx; this.y += this.vy;
+        ctx.fillStyle = `hsl(${this.baseHue}, 70%, 60%)`;
+        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
+    }
+}
+
+function scanText() {
+    const val = inputTxt.value.trim();
+    tCanvas.width = canvas.width; tCanvas.height = canvas.height;
+    tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height);
+    tCtx.fillStyle = "white"; tCtx.textAlign = "center"; tCtx.textBaseline = "middle";
+    tCtx.font = `bold ${Math.min(canvas.width / (val.length * 0.6 + 1), 150)}px sans-serif`;
+    tCtx.fillText(val, canvas.width / 2, canvas.height / 2);
+    const data = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height).data;
+    let points = [];
+    for (let y = 0; y < tCanvas.height; y += 4) {
+        for (let x = 0; x < tCanvas.width; x += 4) {
+            if (data[(y * tCanvas.width + x) * 4 + 3] > 128) points.push({ x, y });
+        }
+    }
+    if (points.length > 0) particles.forEach((p, i) => { p.dest = points[i % points.length]; });
+}
+
+inputTxt.addEventListener("input", () => {
+    scanText();
+    if (conn) conn.send({ type: 'text', value: inputTxt.value });
+});
+
+let remoteMouse = { x: 0, y: 0 }, mouseX = 0, mouseY = 0;
+document.addEventListener("mousemove", e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+function loop() {
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    ctx.fillStyle = "rgba(10, 10, 10, 0.2)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => p.update());
+    if (conn && frames % 2 === 0) conn.send({ type: 'sync', mouse: { x: mouseX, y: mouseY } });
+    frames++;
+    const now = performance.now();
+    if (now > lastTime + 1000) {
+        document.getElementById("fps-val").textContent = frames;
+        frames = 0; lastTime = now;
+        if (window.performance?.memory) document.getElementById("ram-val").textContent = Math.round(performance.memory.usedJSHeapSize / 1048576) + "MB";
+    }
+    requestAnimationFrame(loop);
+}
+
+let frames = 0, lastTime = performance.now();
+for (let i = 0; i < amount; i++) particles.push(new Particle(i));
+loop();
+</script>
+</body>
+</html>
