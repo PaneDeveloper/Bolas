@@ -22,7 +22,6 @@
         z-index:100; line-height:1.4; pointer-events:auto; min-width: 180px;
     }
 
-    /* ALTERAÇÃO: Container para a lista de players online (suporta 50+) */
     #player-list-container {
         margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
         max-height: 200px; overflow-y: auto; scrollbar-width: thin;
@@ -56,7 +55,6 @@
         border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
     }
 
-    /* ALTERAÇÃO: Estilo para o Popup do Canvas Alheio */
     #remote-popup {
         position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
         background: #000; border: 2px solid #0f0; border-radius: 10px;
@@ -90,7 +88,6 @@
     <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
     <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
     <div id="player-list-container">
-        <!-- ALTERAÇÃO: UI da lista de jogadores online -->
         <div style="font-size: 9px; color: #666; margin-bottom: 5px;">PLAYERS ONLINE (CLIQUE P/ ENTRAR):</div>
         <div id="players-list"></div>
     </div>
@@ -104,6 +101,7 @@
     <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">CONFIGURAÇÃO DE ACESSO</div>
     <input type="text" id="user-nick" class="mp-input" placeholder="Seu Nick">
     <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala (Opcional)">
+    <div style="font-size: 10px; color: #888; margin-top: -5px; margin-bottom: 5px;">Use o mesmo ID para ver os amigos</div>
     <button class="btn" onclick="joinLobby()">ENTRAR NO LOBBY</button>
 </div>
 
@@ -116,7 +114,6 @@
     </div>
 </div>
 
-<!-- ALTERAÇÃO: Popup que será aberto ao clicar em um usuário na lista -->
 <div id="remote-popup">
     <div id="popup-header">
         <span id="popup-title">Tela de: USER</span>
@@ -142,22 +139,19 @@ const remotePopup = document.getElementById("remote-popup");
 const remoteCanvas = document.getElementById("remote-canvas");
 const remoteCtx = remoteCanvas.getContext("2d");
 
-// ALTERAÇÃO: Controle de múltiplas conexões para simular Lobby (Connections Map)
 let peer, connections = {};
 let myId = "";
 let userName = "";
 let isConnected = false;
-let activeRemoteConn = null; // Armazena a conexão do player que estamos espiando no popup
+let activeRemoteConn = null;
 
-// Motor de Partículas Local (Independente)
 let localParticles = [];
 const amount = 3000;
 
-// ALTERAÇÃO: Variáveis exclusivas para renderizar o Canvas remoto dentro do Popup
 let remoteParticles = [];
 let remoteInputVal = "";
 
-// --- SISTEMA P2P (MESH LOBBY) ---
+// --- SISTEMA P2P MELHORADO ---
 
 function generateID() {
     return Math.random().toString(36).substr(2, 5).toUpperCase();
@@ -165,11 +159,15 @@ function generateID() {
 
 function joinLobby() {
     userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
-    let roomId = document.getElementById("target-id").value.trim();
+    let roomId = document.getElementById("target-id").value.trim().toUpperCase();
     
-    // ALTERAÇÃO: O ID agora combina RoomID e Nick para facilitar a identificação na rede Mesh
     myId = roomId || generateID();
-    peer = new Peer(myId + "_" + userName.replace(/\s/g, '_'));
+    
+    // CORREÇÃO: Usamos um ID determinístico baseado na sala + nick
+    // No PeerJS público, isso ajuda a encontrar o "host" ou outros membros
+    const fullPeerId = "BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_');
+    
+    peer = new Peer(fullPeerId);
 
     peer.on('open', (id) => {
         document.getElementById("room-id-display").textContent = myId;
@@ -177,23 +175,51 @@ function joinLobby() {
         document.getElementById("peer-status").style.color = "#0f0";
         isConnected = true;
         mpPanel.style.display = "none";
+        
+        // CORREÇÃO: Tenta notificar a rede que entramos (Simulação de Discovery)
+        console.log("Entrou como:", id);
         updatePlayerList();
     });
 
+    // Quando alguém se conecta a nós
     peer.on('connection', (conn) => {
         setupConnection(conn);
+    });
+
+    // Tratamento de erro (ID já ocupado ou erro de rede)
+    peer.on('error', (err) => {
+        if(err.type === 'unavailable-id') {
+            // Se o ID com Nick já existe, gera um novo nick
+            document.getElementById("user-nick").value = userName + Math.floor(Math.random()*10);
+            joinLobby();
+        } else {
+            console.error("PeerJS Error:", err);
+            document.getElementById("peer-status").textContent = "ERRO CONEXÃO";
+            document.getElementById("peer-status").style.color = "red";
+        }
     });
 }
 
 function setupConnection(conn) {
-    // ALTERAÇÃO: Separa o Nick do PeerID para exibir na lista
-    const peerName = conn.peer.split('_')[1];
+    // Extrai o nome do peer do ID formatado
+    const peerParts = conn.peer.split('_');
+    const peerName = peerParts[peerParts.length - 1];
+    
     connections[conn.peer] = { conn, name: peerName };
+
+    conn.on('open', () => {
+        console.log("Conectado com:", peerName);
+        updatePlayerList();
+        // Envia nosso nick para confirmar
+        conn.send({ type: 'handshake', name: userName });
+    });
 
     conn.on('data', (data) => {
         if (data.type === 'chat') appendMessage(data.user, data.msg);
-        
-        // ALTERAÇÃO: Sincronização de texto apenas se o popup estiver aberto para este peer
+        if (data.type === 'handshake') {
+            connections[conn.peer].name = data.name;
+            updatePlayerList();
+        }
         if (data.type === 'text_sync' && activeRemoteConn?.peer === conn.peer) {
             remoteInputVal = data.value;
             syncParticles(remoteParticles, remoteInputVal, remoteCanvas, remoteCtx);
@@ -208,37 +234,48 @@ function setupConnection(conn) {
     updatePlayerList();
 }
 
-// ALTERAÇÃO: Função que atualiza a lista lateral com nomes clicáveis
+// CORREÇÃO: Função para o usuário se conectar manualmente a alguém caso a lista demore
+function manualConnect() {
+    const targetNick = prompt("Digite o Nick exato do seu amigo:");
+    if(!targetNick) return;
+    const targetPeerId = "BALLS_ROOM_" + myId + "_" + targetNick.replace(/\s/g, '_');
+    const conn = peer.connect(targetPeerId);
+    setupConnection(conn);
+}
+
 function updatePlayerList() {
     playersListDiv.innerHTML = "";
     
-    // Eu (Sempre no topo, não clicável)
     const me = document.createElement("div");
     me.className = "player-item me";
     me.textContent = userName + " (VOCÊ)";
     playersListDiv.appendChild(me);
 
-    // Outros Players Conectados
     Object.keys(connections).forEach(peerId => {
         const p = document.createElement("div");
         p.className = "player-item";
-        p.innerHTML = `<span>${connections[peerId].name}</span> <span style="font-size:8px; opacity:0.5;">CONECTADO</span>`;
-        // ALTERAÇÃO: Ao clicar no nome, abre o popup do canvas remoto
+        p.innerHTML = `<span>${connections[peerId].name}</span> <span style="font-size:8px; opacity:0.5;">ONLINE</span>`;
         p.onclick = () => openRemoteCanvas(peerId);
         playersListDiv.appendChild(p);
     });
+
+    // Botão auxiliar se a lista estiver vazia
+    if(Object.keys(connections).length === 0) {
+        const hint = document.createElement("div");
+        hint.style.fontSize = "9px";
+        hint.style.marginTop = "10px";
+        hint.style.color = "#444";
+        hint.innerHTML = "Esperando conexão...<br><button onclick='manualConnect()' style='background:none; border:1px solid #333; color:#666; font-size:9px; cursor:pointer;'>Conectar via Nick</button>";
+        playersListDiv.appendChild(hint);
+    }
 }
 
-// ALTERAÇÃO: Função que inicia a visualização remota no popup
 function openRemoteCanvas(peerId) {
     activeRemoteConn = connections[peerId].conn;
-    document.getElementById("popup-title").textContent = "CONTROLANDO: " + connections[peerId].name;
+    document.getElementById("popup-title").textContent = "VISUALIZANDO: " + connections[peerId].name;
     remotePopup.style.display = "flex";
-    
-    // ALTERAÇÃO: Gera novas partículas exclusivas para a janela de popup
     remoteParticles = [];
     for(let i=0; i<amount; i++) remoteParticles.push(new Particle(i, remoteCanvas));
-    
     resizeRemote();
 }
 
@@ -252,10 +289,9 @@ document.getElementById("close-popup").onclick = () => {
 document.getElementById("chat-input").onkeydown = (e) => {
     if(e.key === "Enter") {
         const msg = e.target.value.trim();
-        if(!isConnected) { mpPanel.style.display = "flex"; return; } // Bloqueio de chat sem sala
+        if(!isConnected) { mpPanel.style.display = "flex"; return; }
         if(msg) {
             appendMessage(userName, msg);
-            // ALTERAÇÃO: Envia mensagem para todos na rede
             Object.values(connections).forEach(p => p.conn.send({ type: 'chat', user: userName, msg }));
             e.target.value = "";
         }
@@ -301,7 +337,6 @@ class Particle {
     }
 }
 
-// Função de sincronização de partículas (Texto -> Pontos)
 function syncParticles(pArray, text, tCanvas, tCtx) {
     if(!text) return;
     const offCanvas = document.createElement("canvas");
@@ -329,9 +364,7 @@ function syncParticles(pArray, text, tCanvas, tCtx) {
 }
 
 inputTxt.oninput = () => {
-    // ALTERAÇÃO: Sincroniza apenas o canvas local (Ninguém assume seu controle)
     syncParticles(localParticles, inputTxt.value, canvas, ctx);
-    // ALTERAÇÃO: Envia o texto para os outros (mas eles só verão se abrirem seu popup)
     Object.values(connections).forEach(p => p.conn.send({ type: 'text_sync', value: inputTxt.value }));
 };
 
@@ -347,12 +380,10 @@ function resizeRemote() {
 }
 
 function loop() {
-    // Render do Canvas Local
     ctx.fillStyle = "rgba(10, 10, 10, 0.2)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     localParticles.forEach(p => p.update(canvas, ctx));
 
-    // ALTERAÇÃO: Render do Canvas Remoto (apenas se o popup estiver ativo)
     if(remotePopup.style.display === "flex") {
         remoteCtx.fillStyle = "rgba(5, 5, 5, 0.2)";
         remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
@@ -362,13 +393,11 @@ function loop() {
     requestAnimationFrame(loop);
 }
 
-// Init
 window.addEventListener('resize', resize);
 resize();
 for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
 loop();
 
-// ALTERAÇÃO: Bloqueia o input de texto e abre o painel se o usuário não estiver logado
 inputTxt.onkeydown = (e) => {
     if(!isConnected) {
         mpPanel.style.display = "flex";
