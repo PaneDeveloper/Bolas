@@ -17,8 +17,43 @@
             position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
             border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
             border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
-            z-index:100; line-height:1.4; pointer-events:auto; min-width: 180px;
+            z-index:100; line-height:1.4; pointer-events:auto; min-width: 200px;
         }
+        
+        /* Layout do cabeçalho de stats com botões */
+        #stats-header {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+            padding-bottom: 8px;
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .audio-btn {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #0f0;
+            color: #0f0;
+            cursor: pointer;
+            font-size: 8px;
+            padding: 3px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: 0.2s;
+            flex: 1;
+            text-align: center;
+        }
+        .audio-btn:hover { background: #0f0; color: #000; }
+        .audio-btn.muted { border-color: #555; color: #555; background: none; }
+
         #player-list-container {
             margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
             max-height: 200px; overflow-y: auto; scrollbar-width: thin;
@@ -91,8 +126,17 @@
 </head>
 <body>
 
+<!-- Elemento da Música de Fundo -->
+<audio id="bgm-player" src="BGM.mp3" loop></audio>
+
 <div id="stats">
-    <div style="border-bottom: 1px solid #0f0; margin-bottom: 5px; padding-bottom: 5px; font-weight: bold;">HUB PROTOCOL Z</div>
+    <div id="stats-header">
+        <div style="font-weight: bold; font-size: 10px; margin-bottom: 4px;">HUB PROTOCOL Z</div>
+        <div class="controls-row">
+            <button id="bgm-toggle" class="audio-btn" onclick="toggleBGM()">MÚSICA: ON</button>
+            <button id="sfx-toggle" class="audio-btn" onclick="toggleSFX()">SOM: ON</button>
+        </div>
+    </div>
     <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
     <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
     <div id="player-list-container">
@@ -143,8 +187,51 @@
 <script>
 // --- AUDIO ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const bgmPlayer = document.getElementById("bgm-player");
+const bgmToggleBtn = document.getElementById("bgm-toggle");
+const sfxToggleBtn = document.getElementById("sfx-toggle");
 
+// Recupera preferências de áudio do localStorage
+let bgmMuted = localStorage.getItem("user_bgm_muted") === "true";
+let sfxMuted = localStorage.getItem("user_sfx_muted") === "true";
+
+function applyAudioStates() {
+    // Aplica Música (BGM)
+    bgmPlayer.muted = bgmMuted;
+    if (bgmMuted) {
+        bgmToggleBtn.textContent = "MÚSICA: OFF";
+        bgmToggleBtn.classList.add("muted");
+    } else {
+        bgmToggleBtn.textContent = "MÚSICA: ON";
+        bgmToggleBtn.classList.remove("muted");
+        if (audioCtx.state === 'running') bgmPlayer.play().catch(() => {});
+    }
+
+    // Aplica Sons de Efeito (SFX)
+    if (sfxMuted) {
+        sfxToggleBtn.textContent = "SOM: OFF";
+        sfxToggleBtn.classList.add("muted");
+    } else {
+        sfxToggleBtn.textContent = "SOM: ON";
+        sfxToggleBtn.classList.remove("muted");
+    }
+}
+
+function toggleBGM() {
+    bgmMuted = !bgmMuted;
+    localStorage.setItem("user_bgm_muted", bgmMuted);
+    applyAudioStates();
+}
+
+function toggleSFX() {
+    sfxMuted = !sfxMuted;
+    localStorage.setItem("user_sfx_muted", sfxMuted);
+    applyAudioStates();
+}
+
+// Funções de SFX - Respeitam a flag sfxMuted
 function playBeep(freq, vol, duration) {
+    if (sfxMuted) return; // Se o botão de SOM estiver em OFF, não toca nada
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'square';
@@ -158,6 +245,7 @@ function playBeep(freq, vol, duration) {
 }
 
 function playExplosion() {
+    if (sfxMuted) return; // Se o botão de SOM estiver em OFF, não toca nada
     const bufferSize = audioCtx.sampleRate * 2;
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const data = buffer.getChannelData(0);
@@ -210,7 +298,13 @@ const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
 function generateID() { return Math.random().toString(36).substr(2, 5).toUpperCase(); }
 
 function joinLobby() {
+    // Ativa contexto de áudio na primeira interação
     if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    // Inicia áudios baseados nas preferências
+    applyAudioStates();
+    if (!bgmMuted) bgmPlayer.play().catch(() => {});
+
     userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
     let roomId = document.getElementById("target-id").value.trim().toUpperCase();
     myId = roomId || generateID();
@@ -403,7 +497,6 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
     offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
     offCtx.clearRect(0,0, offCanvas.width, offCanvas.height);
 
-    // Lógica de Prioridade: Imagem > Texto
     if (currentImg) {
         const aspect = currentImg.width / currentImg.height;
         let iw = offCanvas.width * 0.9, ih = iw / aspect;
@@ -421,8 +514,6 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
 
     const imgData = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
     const pts = [];
-    
-    // Step ajustado para equilíbrio entre performance e detalhe
     const step = currentImg ? 2 : 3; 
     for(let y=0; y<tCanvas.height; y+=step) {
         for(let x=0; x<tCanvas.width; x+=step) {
@@ -513,7 +604,12 @@ function loop() {
 window.addEventListener('resize', () => { resize(); resizeRemote(); });
 for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
 resize(); loop();
-window.onload = () => { mpPanel.style.display = "flex"; resize(); };
+
+window.onload = () => { 
+    mpPanel.style.display = "flex"; 
+    applyAudioStates(); // Carrega os botões e estados salvos no localStorage
+    resize(); 
+};
 </script>
 </body>
 </html>
