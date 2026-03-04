@@ -90,7 +90,7 @@
 </div>
 
 <div id="ui">
-    <textarea id="txt" placeholder="Digite algo :3" maxlength="150"></textarea>
+    <textarea id="txt" placeholder="Digite algo ou emojis :3" maxlength="150"></textarea>
     <div class="hint-text">Círculo de carregamento ativo (Economia de Energia) 🌀</div>
 </div>
 
@@ -178,7 +178,7 @@ let isConnected = false;
 let activeRemoteConn = null;
 
 let localParticles = [];
-const amount = 15000; // pelo que pode ver nessa alteração de código inteiro aí kk, os dispositivos não irão travar mais com esse numero grande de bolinhas, pois as memas ficam em idle quando não tem texto kk    >:3
+const amount = 15000;  // pelo que pode ver nessa alteração de código inteiro aí kk, os dispositivos não irão travar mais com esse numero grande de bolinhas, pois as memas ficam em idle quando não tem texto kk    >:3
 let remoteParticles = [];
 let remoteInputVal = "";
 
@@ -301,6 +301,7 @@ class Particle {
         this.r = Math.random() * 1.5 + 0.8;
         this.color = `rgba(0, 255, 0, 1)`; 
         this.originalColor = this.color;
+        this.targetColor = this.color; // Cor de destino do texto/emoji
         this.colorOffset = Math.random() * 360;
         this.idleAngle = (i / amount) * Math.PI * 2; 
     }
@@ -313,7 +314,7 @@ class Particle {
     }
 
     update(targetCtx, isExploding, isIdleMode) {
-        let finalColor = this.originalColor;
+        let finalColor = this.targetColor;
 
         // Lógica de Cor
         if (frenzyTimer > 0) {
@@ -328,7 +329,10 @@ class Particle {
             if (dist < 0.5) { 
                 const brightness = 1 - (dist / 0.5);
                 const val = Math.floor(brightness * 255);
+                // Mescla a cor base verde com o brilho branco
                 finalColor = `rgba(${val}, 255, ${val}, 1)`;
+            } else {
+                finalColor = this.originalColor;
             }
         }
 
@@ -401,6 +405,7 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
                 p.idleAngle = ang;
                 p.dest = { x: cx + Math.cos(ang) * radius, y: cy + Math.sin(ang) * radius };
                 p.originalColor = "rgba(0, 140, 0, 0.7)";
+                p.targetColor = p.originalColor;
             });
         }
         return;
@@ -411,14 +416,16 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
         if (!explosionSequenceActive && frenzyTimer <= 0) isExplodingLocal = false;
     }
 
+    // Criar buffer para renderizar texto e capturar pixels/cores
     const offCanvas = document.createElement("canvas");
-    offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
-    const offCtx = offCanvas.getContext("2d");
-    const lines = text.split(/\n/);
+    offCanvas.width = tCanvas.width; 
+    offCanvas.height = tCanvas.height;
+    const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
     
+    const lines = text.split(/\n/);
     const fs = Math.min(tCanvas.width / (Math.max(...lines.map(l => l.length)) * 0.7 + 1), (tCanvas.height / (lines.length + 1)) * 0.8, 110);
     offCtx.font = `bold ${fs}px sans-serif`;
-    offCtx.fillStyle = "white";
+    offCtx.fillStyle = "white"; // Cor padrão para texto
     offCtx.textAlign = "center";
     offCtx.textBaseline = "middle";
 
@@ -426,11 +433,21 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
     const sy = (tCanvas.height - th) / 2 + lh / 2;
     lines.forEach((l, i) => offCtx.fillText(l.trim(), tCanvas.width/2, sy + i*lh));
 
-    const img = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
+    // Capturar dados de imagem (incluindo cores de emojis)
+    const imgData = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
     const pts = [];
-    for(let y=0; y<tCanvas.height; y+=4) {
-        for(let x=0; x<tCanvas.width; x+=4) {
-            if(img[(y*tCanvas.width+x)*4 + 3] > 128) pts.push({x, y});
+    const step = 4; // Amostragem de pixels para performance
+    for(let y=0; y<tCanvas.height; y+=step) {
+        for(let x=0; x<tCanvas.width; x+=step) {
+            const idx = (y * tCanvas.width + x) * 4;
+            const alpha = imgData[idx + 3];
+            if(alpha > 128) {
+                pts.push({
+                    x, 
+                    y, 
+                    color: `rgba(${imgData[idx]}, ${imgData[idx+1]}, ${imgData[idx+2]}, 1)`
+                });
+            }
         }
     }
     
@@ -438,7 +455,7 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
         pArray.forEach((p, i) => {
             const pt = pts[i % pts.length];
             p.dest = { x: pt.x, y: pt.y };
-            p.originalColor = "rgba(0, 255, 0, 1)";
+            p.targetColor = pt.color; // Sincroniza a cor da partícula com a cor capturada
         });
     }
 }
