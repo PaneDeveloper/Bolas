@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolinhas Stats Lobby 😼🌐</title>
+    <title>Bolinhas Stats Lobby - Media Engine 😼🌐</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
@@ -11,6 +11,7 @@
         #ui { 
             position:fixed; top:20px; left:50%; transform:translateX(-50%); 
             z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
+            width: 90%; max-width: 500px;
         }
         #stats { 
             position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
@@ -31,9 +32,20 @@
 
         textarea#txt { 
             padding:12px 20px; font-size:16px; border-radius:15px; border:2px solid #333; 
-            width:380px; height: 80px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
+            width:100%; height: 60px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
             transition: border-color 0.3s; resize: none; font-family: sans-serif;
         }
+
+        .media-controls {
+            display: flex; gap: 10px; width: 100%; justify-content: center;
+        }
+        .media-btn {
+            background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
+            padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 10px;
+            transition: 0.2s; flex: 1; text-align: center;
+        }
+        .media-btn:hover { background: #0f0; color: #000; }
+        input[type="file"] { display: none; }
 
         #multiplayer-panel {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -90,8 +102,17 @@
 </div>
 
 <div id="ui">
-    <textarea id="txt" placeholder="Digite algo ou emojis :3" maxlength="150"></textarea>
-    <div class="hint-text">Círculo de carregamento ativo (Economia de Energia) 🌀</div>
+    <textarea id="txt" placeholder="Texto ou emojis..." maxlength="150"></textarea>
+    <div class="media-controls">
+        <label class="media-btn" for="img-upload">🖼️ CARREGAR IMAGEM</label>
+        <input type="file" id="img-upload" accept="image/*">
+        
+        <label class="media-btn" for="vid-upload">🎬 CARREGAR VÍDEO</label>
+        <input type="file" id="vid-upload" accept="video/*">
+        
+        <button class="media-btn" onclick="clearMedia()">❌ LIMPAR TUDO</button>
+    </div>
+    <div class="hint-text" id="status-hint">Modo Econômico Ativo 🌀</div>
 </div>
 
 <div id="multiplayer-panel">
@@ -143,9 +164,7 @@ function playExplosion() {
     const bufferSize = audioCtx.sampleRate * 2;
     const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
     const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) {
-        data[i] = Math.random() * 2 - 1;
-    }
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
     const noise = audioCtx.createBufferSource();
     noise.buffer = buffer;
     const filter = audioCtx.createBiquadFilter();
@@ -170,15 +189,13 @@ const playersListDiv = document.getElementById("players-list");
 const remotePopup = document.getElementById("remote-popup");
 const remoteCanvas = document.getElementById("remote-canvas");
 const remoteCtx = remoteCanvas.getContext("2d");
+const statusHint = document.getElementById("status-hint");
 
 let peer, connections = {};
-let myId = "";
-let userName = "";
-let isConnected = false;
-let activeRemoteConn = null;
+let myId = "", userName = "", isConnected = false, activeRemoteConn = null;
 
 let localParticles = [];
-const amount = 15000;  // pelo que pode ver nessa alteração de código inteiro aí kk, os dispositivos não irão travar mais com esse numero grande de bolinhas, pois as memas ficam em idle quando não tem texto kk    >:3
+const amount = 15000; 
 let remoteParticles = [];
 let remoteInputVal = "";
 
@@ -186,6 +203,12 @@ let isExplodingLocal = false;
 let isIdle = true; 
 let frenzyTimer = 0; 
 let explosionSequenceActive = false;
+
+// Media Engine Vars
+let currentImg = null;
+let currentVid = null;
+const offCanvas = document.createElement("canvas");
+const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
 
 // --- P2P ---
 function generateID() { return Math.random().toString(36).substr(2, 5).toUpperCase(); }
@@ -198,7 +221,7 @@ function joinLobby() {
     const fullPeerId = "BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_');
     
     peer = new Peer(fullPeerId);
-    peer.on('open', (id) => {
+    peer.on('open', () => {
         document.getElementById("room-id-display").textContent = myId;
         document.getElementById("peer-status").textContent = "ONLINE";
         document.getElementById("peer-status").style.color = "#0f0";
@@ -301,7 +324,7 @@ class Particle {
         this.r = Math.random() * 1.5 + 0.8;
         this.color = `rgba(0, 255, 0, 1)`; 
         this.originalColor = this.color;
-        this.targetColor = this.color; // Cor de destino do texto/emoji
+        this.targetColor = this.color;
         this.colorOffset = Math.random() * 360;
         this.idleAngle = (i / amount) * Math.PI * 2; 
     }
@@ -316,50 +339,36 @@ class Particle {
     update(targetCtx, isExploding, isIdleMode) {
         let finalColor = this.targetColor;
 
-        // Lógica de Cor
         if (frenzyTimer > 0) {
             const h = (Date.now() / 4 + this.colorOffset) % 360;
             finalColor = `hsla(${h}, 100%, 50%, 1)`;
         } else if (isIdleMode) {
-            // Animação de Brilho Branco (Otimizada)
             const timePhase = (Date.now() * 0.005) % (Math.PI * 2);
             let dist = Math.abs(timePhase - this.idleAngle);
             if (dist > Math.PI) dist = Math.PI * 2 - dist;
-            
             if (dist < 0.5) { 
                 const brightness = 1 - (dist / 0.5);
                 const val = Math.floor(brightness * 255);
-                // Mescla a cor base verde com o brilho branco
                 finalColor = `rgba(${val}, 255, ${val}, 1)`;
             } else {
                 finalColor = this.originalColor;
             }
         }
 
-        // Lógica de Movimento
         if (isExploding || frenzyTimer > 0) {
-            this.x += this.vx;
-            this.y += this.vy;
+            this.x += this.vx; this.y += this.vy;
             if (this.x < 0 || this.x > this.canvasRef.width) this.vx *= -0.8;
             if (this.y < 0 || this.y > this.canvasRef.height) this.vy *= -0.8;
-            this.vx *= 0.95;
-            this.vy *= 0.95;
-            
+            this.vx *= 0.95; this.vy *= 0.95;
             if (frenzyTimer <= 0) {
-                const accX = (this.dest.x - this.x) / 80;
-                const accY = (this.dest.y - this.y) / 80;
-                this.vx += accX;
-                this.vy += accY;
+                this.vx += (this.dest.x - this.x) / 80;
+                this.vy += (this.dest.y - this.y) / 80;
             }
         } else {
-            // Modo Texto ou Idle
-            const easing = isIdleMode ? 30 : 15;
-            const accX = (this.dest.x - this.x) / easing;
-            const accY = (this.dest.y - this.y) / easing;
-            this.vx = (this.vx + accX) * 0.75;
-            this.vy = (this.vy + accY) * 0.75;
-            this.x += this.vx;
-            this.y += this.vy;
+            const easing = isIdleMode ? 30 : 12;
+            this.vx = (this.vx + (this.dest.x - this.x) / easing) * 0.7;
+            this.vy = (this.vy + (this.dest.y - this.y) / easing) * 0.7;
+            this.x += this.vx; this.y += this.vy;
         }
 
         targetCtx.fillStyle = finalColor;
@@ -367,37 +376,15 @@ class Particle {
     }
 }
 
-function triggerExplosionSequence() {
-    if (explosionSequenceActive) return;
-    explosionSequenceActive = true;
-    let countdown = 10;
-    const runTimer = () => {
-        if (countdown > 0) {
-            const isCritical = countdown <= 5;
-            playBeep(isCritical ? 1200 : 880, 0.1, isCritical ? 0.05 : 0.1);
-            countdown--;
-            setTimeout(runTimer, isCritical ? 500 : 1000);
-        } else {
-            playExplosion();
-            isExplodingLocal = true;
-            frenzyTimer = 600; 
-            localParticles.forEach(p => p.explode());
-            explosionSequenceActive = false;
-        }
-    };
-    runTimer();
-}
-
 function handleSync(pArray, text, tCanvas, tCtx, targetType) {
     if (!tCanvas || tCanvas.width <= 0) return;
 
-    if (targetType === 'local' && /BOOM|KABOOM/i.test(text.trim())) {
-        triggerExplosionSequence();
-    }
+    if (targetType === 'local' && /BOOM|KABOOM/i.test(text.trim())) triggerExplosionSequence();
 
-    if (!text || text.trim() === "") {
+    const noMedia = !currentImg && !currentVid;
+    if ((!text || text.trim() === "") && noMedia) {
         if (targetType === 'local') {
-            isIdle = true;
+            isIdle = true; statusHint.textContent = "Modo Econômico Ativo 🌀";
             const cx = tCanvas.width / 2, cy = tCanvas.height / 2;
             const radius = Math.min(tCanvas.width, tCanvas.height) * 0.28;
             pArray.forEach((p, i) => {
@@ -412,41 +399,43 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
     }
 
     if (targetType === 'local') {
-        isIdle = false;
+        isIdle = false; 
+        statusHint.textContent = currentVid ? "Renderizando Vídeo 🎬" : (currentImg ? "Exibindo Imagem 🖼️" : "Processando Texto ✍️");
         if (!explosionSequenceActive && frenzyTimer <= 0) isExplodingLocal = false;
     }
 
-    // Criar buffer para renderizar texto e capturar pixels/cores
-    const offCanvas = document.createElement("canvas");
-    offCanvas.width = tCanvas.width; 
-    offCanvas.height = tCanvas.height;
-    const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
-    
-    const lines = text.split(/\n/);
-    const fs = Math.min(tCanvas.width / (Math.max(...lines.map(l => l.length)) * 0.7 + 1), (tCanvas.height / (lines.length + 1)) * 0.8, 110);
-    offCtx.font = `bold ${fs}px sans-serif`;
-    offCtx.fillStyle = "white"; // Cor padrão para texto
-    offCtx.textAlign = "center";
-    offCtx.textBaseline = "middle";
+    offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
+    offCtx.clearRect(0,0, offCanvas.width, offCanvas.height);
 
-    const lh = fs * 1.2, th = lines.length * lh;
-    const sy = (tCanvas.height - th) / 2 + lh / 2;
-    lines.forEach((l, i) => offCtx.fillText(l.trim(), tCanvas.width/2, sy + i*lh));
+    // Lógica de Prioridade: Vídeo > Imagem > Texto
+    if (currentVid) {
+        const aspect = currentVid.videoWidth / currentVid.videoHeight;
+        let vw = offCanvas.width * 0.8, vh = vw / aspect;
+        if (vh > offCanvas.height * 0.8) { vh = offCanvas.height * 0.8; vw = vh * aspect; }
+        offCtx.drawImage(currentVid, (offCanvas.width - vw)/2, (offCanvas.height - vh)/2, vw, vh);
+    } else if (currentImg) {
+        const aspect = currentImg.width / currentImg.height;
+        let iw = offCanvas.width * 0.8, ih = iw / aspect;
+        if (ih > offCanvas.height * 0.8) { ih = offCanvas.height * 0.8; iw = ih * aspect; }
+        offCtx.drawImage(currentImg, (offCanvas.width - iw)/2, (offCanvas.height - ih)/2, iw, ih);
+    } else {
+        const lines = text.split(/\n/);
+        const fs = Math.min(tCanvas.width / (Math.max(...lines.map(l => l.length)) * 0.7 + 1), (tCanvas.height / (lines.length + 1)) * 0.8, 110);
+        offCtx.font = `bold ${fs}px sans-serif`;
+        offCtx.fillStyle = "white"; offCtx.textAlign = "center"; offCtx.textBaseline = "middle";
+        const lh = fs * 1.2, th = lines.length * lh;
+        const sy = (tCanvas.height - th) / 2 + lh / 2;
+        lines.forEach((l, i) => offCtx.fillText(l.trim(), tCanvas.width/2, sy + i*lh));
+    }
 
-    // Capturar dados de imagem (incluindo cores de emojis)
     const imgData = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
     const pts = [];
-    const step = 4; // Amostragem de pixels para performance
+    const step = currentVid || currentImg ? 3 : 4; 
     for(let y=0; y<tCanvas.height; y+=step) {
         for(let x=0; x<tCanvas.width; x+=step) {
             const idx = (y * tCanvas.width + x) * 4;
-            const alpha = imgData[idx + 3];
-            if(alpha > 128) {
-                pts.push({
-                    x, 
-                    y, 
-                    color: `rgba(${imgData[idx]}, ${imgData[idx+1]}, ${imgData[idx+2]}, 1)`
-                });
+            if(imgData[idx+3] > 50) {
+                pts.push({ x, y, color: `rgb(${imgData[idx]}, ${imgData[idx+1]}, ${imgData[idx+2]})` });
             }
         }
     }
@@ -455,9 +444,45 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
         pArray.forEach((p, i) => {
             const pt = pts[i % pts.length];
             p.dest = { x: pt.x, y: pt.y };
-            p.targetColor = pt.color; // Sincroniza a cor da partícula com a cor capturada
+            p.targetColor = pt.color;
         });
     }
+}
+
+// --- CONTROLES DE MÍDIA ---
+document.getElementById('img-upload').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => { 
+            currentImg = img; currentVid = null; 
+            handleSync(localParticles, inputTxt.value, canvas, ctx, 'local'); 
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+};
+
+document.getElementById('vid-upload').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const vid = document.createElement('video');
+    vid.src = url;
+    vid.muted = true; vid.loop = true;
+    vid.onloadeddata = () => { 
+        currentVid = vid; currentImg = null; vid.play(); 
+    };
+};
+
+function clearMedia() {
+    currentImg = null;
+    if (currentVid) { currentVid.pause(); currentVid = null; }
+    document.getElementById('img-upload').value = "";
+    document.getElementById('vid-upload').value = "";
+    handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
 }
 
 inputTxt.oninput = () => {
@@ -465,24 +490,40 @@ inputTxt.oninput = () => {
     Object.values(connections).forEach(p => p.conn.send({ type: 'text_sync', value: inputTxt.value }));
 };
 
+function triggerExplosionSequence() {
+    if (explosionSequenceActive) return;
+    explosionSequenceActive = true;
+    let countdown = 10;
+    const runTimer = () => {
+        if (countdown > 0) {
+            playBeep(countdown <= 5 ? 1200 : 880, 0.1, 0.1);
+            countdown--; setTimeout(runTimer, countdown <= 5 ? 500 : 1000);
+        } else {
+            playExplosion(); isExplodingLocal = true; frenzyTimer = 600; 
+            localParticles.forEach(p => p.explode()); explosionSequenceActive = false;
+        }
+    };
+    runTimer();
+}
+
 function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
 }
 
 function resizeRemote() {
     const c = document.getElementById("remote-canvas-container");
-    if (c && c.clientWidth > 0) {
-        remoteCanvas.width = c.clientWidth;
-        remoteCanvas.height = c.clientHeight;
-    }
+    if (c && c.clientWidth > 0) { remoteCanvas.width = c.clientWidth; remoteCanvas.height = c.clientHeight; }
 }
 
 function loop() {
-    ctx.fillStyle = "rgba(10, 10, 10, 0.3)";
+    ctx.fillStyle = "rgba(10, 10, 10, 0.25)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (frenzyTimer > 0) frenzyTimer--;
+    
+    // Se houver vídeo, forçar atualização das partículas a cada frame
+    if (currentVid && !currentVid.paused) handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
+
     localParticles.forEach(p => p.update(ctx, isExplodingLocal, isIdle));
 
     if(remotePopup.style.display === "flex" && remoteCanvas.width > 0) {
@@ -495,9 +536,9 @@ function loop() {
 
 window.addEventListener('resize', () => { resize(); resizeRemote(); });
 for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
-resize(); 
-loop();
+resize(); loop();
 window.onload = () => { mpPanel.style.display = "flex"; resize(); };
+    // eu espero que funcione tranquilo em dispositivos mais fracos :/
 </script>
 </body>
 </html>
