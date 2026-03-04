@@ -1,310 +1,347 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bolinhas Stats Lobby 😼🌐</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<style>
-    body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
-    
-    canvas { display: block; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolinhas Stats Lobby - Custom Media 😼🌐</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
+        canvas { display: block; }
+        
+        /* UI Superior */
+        #ui { 
+            position:fixed; top:20px; left:50%; transform:translateX(-50%); 
+            z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
+            width: 90%; max-width: 600px;
+        }
 
-    #ui { 
-        position:fixed; top:20px; left:50%; transform:translateX(-50%); 
-        z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
-    }
+        /* Painel de Stats */
+        #stats { 
+            position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
+            border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
+            border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
+            z-index:100; line-height:1.4; pointer-events:auto; min-width: 220px;
+        }
+        #stats-header {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid rgba(0, 255, 0, 0.3);
+            padding-bottom: 8px;
+        }
+        .controls-row { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+        .audio-btn {
+            background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
+            cursor: pointer; font-size: 8px; padding: 4px 6px; border-radius: 3px;
+            text-transform: uppercase; font-weight: bold; transition: 0.2s; flex: 1; text-align: center;
+        }
+        .audio-btn:hover { background: #0f0; color: #000; }
+        .audio-btn.muted { border-color: #555; color: #555; background: none; }
+        
+        #player-list-container {
+            margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
+            max-height: 150px; overflow-y: auto; scrollbar-width: thin;
+        }
+        .player-item { 
+            padding: 5px; border: 1px transparent; cursor: pointer; 
+            display: flex; justify-content: space-between; transition: 0.2s;
+        }
+        .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
+        .player-item.me { color: #fff; font-weight: bold; cursor: default; }
 
-    #stats { 
-        position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
-        border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
-        border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
-        z-index:100; line-height:1.4; pointer-events:auto; min-width: 180px;
-    }
+        /* Input */
+        textarea#txt { 
+            padding:12px 20px; font-size:16px; border-radius:15px; border:2px solid #333; 
+            width:100%; height: 60px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
+            transition: border-color 0.3s; resize: none; font-family: sans-serif;
+        }
+        .media-controls { display: flex; gap: 10px; width: 100%; justify-content: center; }
+        .media-btn {
+            background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
+            padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 11px;
+            transition: 0.2s; flex: 1; text-align: center; font-weight: bold;
+        }
+        .media-btn:hover { background: #0f0; color: #000; }
+        input[type="file"] { display: none; }
 
-    #player-list-container {
-        margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
-        max-height: 200px; overflow-y: auto; scrollbar-width: thin;
-    }
-    .player-item { 
-        padding: 5px; border: 1px transparent; cursor: pointer; 
-        display: flex; justify-content: space-between; transition: 0.2s;
-    }
-    .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
-    .player-item.me { color: #fff; font-weight: bold; cursor: default; }
+        /* Custom Media Prompt */
+        #media-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 2000; display: none;
+            align-items: center; justify-content: center;
+        }
+        .modal {
+            background: #000; border: 2px solid #0f0; padding: 20px; border-radius: 10px;
+            display: flex; flex-direction: column; gap: 15px; width: 350px;
+        }
 
-    input#txt { 
-        padding:12px 20px; font-size:18px; border-radius:50px; border:2px solid #333; 
-        width:350px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
-        transition: border-color 0.3s;
-    }
-    input#txt:focus { border-color: #0f0; }
+        /* Login */
+        #multiplayer-panel {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: flex; flex-direction: column; gap: 15px; align-items: center;
+            z-index: 1000; background: rgba(0,0,0,0.98); padding: 40px; border-radius: 15px;
+            border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0,255,0,0.3);
+        }
+        .mp-input { 
+            width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
+            background: #111; border: 1px solid #444; color: #0f0; text-align: center; outline: none;
+        }
+        .btn { 
+            cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
+            border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
+        }
 
-    #multiplayer-panel {
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        display: none; flex-direction: column; gap: 15px; align-items: center;
-        z-index: 1000; background: rgba(0,0,0,0.98); padding: 40px; border-radius: 15px;
-        border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0,255,0,0.3);
-    }
-    .mp-input { 
-        width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
-        background: #111; border: 1px solid #444; color: #0f0; text-align: center; outline: none;
-    }
-    .btn { 
-        cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
-        border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
-    }
-
-    #remote-popup {
-        position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
-        background: #000; border: 2px solid #0f0; border-radius: 10px;
-        z-index: 2000; display: none; flex-direction: column;
-        box-shadow: 0 0 100px #000;
-    }
-    #popup-header { background: #0f0; color: #000; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
-    #close-popup { cursor: pointer; background: #000; color: #fff; border: none; padding: 0 10px; }
-    #remote-canvas-container { flex: 1; position: relative; overflow: hidden; background: #050505; }
-    #remote-input-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #0f0; font-size: 12px; background: rgba(0,0,0,0.8); padding: 5px 10px; }
-
-    #chat-toggle {
-        position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
-        background: #0f0; border-radius: 50%; display: flex; align-items: center;
-        justify-content: center; cursor: pointer; z-index: 300; font-size: 24px; border: none;
-    }
-    #chat-window {
-        position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
-        background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
-        display: none; flex-direction: column; z-index: 299; overflow: hidden;
-    }
-    #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
-    #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
-    #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
-</style>
+        /* Chat */
+        #chat-toggle {
+            position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
+            background: #0f0; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; z-index: 300; font-size: 24px; border: none;
+        }
+        #chat-window {
+            position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
+            background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
+            display: none; flex-direction: column; z-index: 299; overflow: hidden;
+        }
+        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
+        #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
+        #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
+        
+        .hint-text { font-size: 11px; color: #0f0; margin-top: 5px; font-weight: bold; text-shadow: 0 0 5px #000;}
+        
+        /* Hidden Video Element for Spectrogram */
+        #custom-video { display: none; }
+    </style>
 </head>
 <body>
 
+<audio id="bgm-player" src="BGM.mp3" loop preload="auto" crossorigin="anonymous"></audio>
+<video id="custom-video" loop crossorigin="anonymous"></video>
+
 <div id="stats">
-    <div style="border-bottom: 1px solid #0f0; margin-bottom: 5px; padding-bottom: 5px; font-weight: bold;">HUB PROTOCOL Z</div>
+    <div id="stats-header">
+        <div style="font-weight: bold; font-size: 10px; margin-bottom: 4px;">HUB PROTOCOL Z</div>
+        <div class="controls-row">
+            <button id="bgm-toggle" class="audio-btn" onclick="toggleBGM()">BGM: ON</button>
+            <button id="media-link-btn" class="audio-btn" onclick="openMediaPrompt()">🔗 LINK</button>
+            <button id="sfx-toggle" class="audio-btn" onclick="toggleSFX()">SFX: ON</button>
+        </div>
+    </div>
     <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
     <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
     <div id="player-list-container">
-        <div style="font-size: 9px; color: #666; margin-bottom: 5px;">PLAYERS ONLINE (CLIQUE P/ ENTRAR):</div>
         <div id="players-list"></div>
     </div>
 </div>
 
 <div id="ui">
-    <input type="text" id="txt" placeholder="Seu Canvas Privado..." maxlength="100">
+    <textarea id="txt" placeholder="Digita algo aqui..." maxlength="150"></textarea>
+    <div class="media-controls">
+        <label class="media-btn" for="img-upload">🖼️ CARREGAR FOTO</label>
+        <input type="file" id="img-upload" accept="image/*">
+        <button class="media-btn" onclick="clearMedia()">❌ LIMPAR FOTO</button>
+    </div>
+    <div class="hint-text" id="status-hint">Protocolo Ativo 📡</div>
+</div>
+
+<!-- Modal de Link Customizado -->
+<div id="media-overlay">
+    <div class="modal">
+        <div style="color:#0f0; font-size: 12px; font-weight: bold;">INSERIR FONTE MULTIMÍDIA</div>
+        <div style="color:#666; font-size: 10px;">Suporta links diretos de MP3, MP4 ou Web Stream.</div>
+        <input type="text" id="custom-url" class="mp-input" placeholder="https://exemplo.com/musica.mp3" style="width: 90%;">
+        <div style="display:flex; gap:10px;">
+            <button class="btn" style="font-size: 12px; padding: 8px;" onclick="setCustomMedia()">CARREGAR</button>
+            <button class="btn" style="background:#444; color:#fff; font-size: 12px; padding: 8px;" onclick="closeMediaPrompt()">FECHAR</button>
+        </div>
+        <button class="btn" style="background:#900; color:#fff; font-size: 10px; padding: 5px;" onclick="resetBGM()">RESTAURAR BGM ORIGINAL</button>
+    </div>
 </div>
 
 <div id="multiplayer-panel">
-    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">CONFIGURAÇÃO DE ACESSO</div>
-    <input type="text" id="user-nick" class="mp-input" placeholder="Seu Nick">
+    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">ACESSO AO PROTOCOLO</div>
+    <input type="text" id="user-nick" class="mp-input" placeholder="Teu Nick">
     <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala (Opcional)">
-    <div style="font-size: 10px; color: #888; margin-top: -5px; margin-bottom: 5px;">Use o mesmo ID para ver os amigos</div>
-    <button class="btn" onclick="joinLobby()">ENTRAR NO LOBBY</button>
+    <button class="btn" onclick="joinLobby()">CONECTAR</button>
 </div>
 
 <button id="chat-toggle">💬</button>
 <div id="chat-window">
-    <div style="background:#0f0; color:#000; padding:5px; font-size:10px; text-align:center; font-weight:bold;">GLOBAL CHAT</div>
+    <div style="background:#0f0; color:#000; padding:5px; font-size:10px; text-align:center; font-weight:bold;">CHAT GLOBAL</div>
     <div id="chat-messages"></div>
     <div id="chat-input-area">
         <input type="text" id="chat-input" placeholder="Mensagem..." autocomplete="off">
     </div>
 </div>
 
-<div id="remote-popup">
-    <div id="popup-header">
-        <span id="popup-title">Tela de: USER</span>
-        <button id="close-popup">X</button>
-    </div>
-    <div id="remote-canvas-container">
-        <canvas id="remote-canvas"></canvas>
-        <div id="remote-input-hint">Interagindo com a Tela de um Usuário</div>
-    </div>
-</div>
-
 <canvas id="canvas"></canvas>
 
 <script>
-// --- CONFIG E ESTADO ---
+// --- AUDIO/MEDIA SETUP ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const bgmPlayer = document.getElementById("bgm-player");
+const customVideo = document.getElementById("custom-video");
+const bgmToggleBtn = document.getElementById("bgm-toggle");
+const sfxToggleBtn = document.getElementById("sfx-toggle");
+
+let activePlayer = bgmPlayer; // Player que está mandando som pro espectrograma
+let analyser, dataArray, sourceBGM, sourceVideo;
+let isAudioInited = false;
+
+function initAudioAnalyser() {
+    if (isAudioInited) return;
+    try {
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        
+        // Criamos fontes para ambos os elementos
+        sourceBGM = audioCtx.createMediaElementSource(bgmPlayer);
+        sourceVideo = audioCtx.createMediaElementSource(customVideo);
+        
+        sourceBGM.connect(analyser);
+        sourceVideo.connect(analyser);
+        
+        analyser.connect(audioCtx.destination);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        isAudioInited = true;
+    } catch(e) { console.error("Erro Audio Context:", e); }
+}
+
+let bgmMuted = localStorage.getItem("user_bgm_muted") === "true";
+let sfxMuted = localStorage.getItem("user_sfx_muted") === "true";
+
+function applyAudioStates() {
+    activePlayer.muted = bgmMuted;
+    if (bgmMuted) {
+        bgmToggleBtn.textContent = "BGM: OFF";
+        bgmToggleBtn.classList.add("muted");
+        activePlayer.pause();
+    } else {
+        bgmToggleBtn.textContent = "BGM: ON";
+        bgmToggleBtn.classList.remove("muted");
+        if (isConnected) {
+            activePlayer.play().catch(() => {});
+            initAudioAnalyser();
+        }
+    }
+    sfxToggleBtn.textContent = sfxMuted ? "SFX: OFF" : "SFX: ON";
+    sfxMuted ? sfxToggleBtn.classList.add("muted") : sfxToggleBtn.classList.remove("muted");
+}
+
+function toggleBGM() { bgmMuted = !bgmMuted; localStorage.setItem("user_bgm_muted", bgmMuted); applyAudioStates(); }
+function toggleSFX() { sfxMuted = !sfxMuted; localStorage.setItem("user_sfx_muted", sfxMuted); applyAudioStates(); }
+
+// Custom Media Logic
+function openMediaPrompt() { document.getElementById("media-overlay").style.display = "flex"; }
+function closeMediaPrompt() { document.getElementById("media-overlay").style.display = "none"; }
+
+function setCustomMedia() {
+    const url = document.getElementById("custom-url").value.trim();
+    if (!url) return;
+    
+    // Para o player antigo
+    activePlayer.pause();
+    
+    // Troca para o player de vídeo/customizado
+    activePlayer = customVideo;
+    customVideo.src = url;
+    customVideo.load();
+    
+    bgmMuted = false;
+    applyAudioStates();
+    closeMediaPrompt();
+    playBeep(660, 0.1, 0.3);
+}
+
+function resetBGM() {
+    activePlayer.pause();
+    activePlayer = bgmPlayer;
+    bgmMuted = false;
+    applyAudioStates();
+    closeMediaPrompt();
+}
+
+function playBeep(freq, vol, duration) {
+    if (sfxMuted) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+// --- CORE ---
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const inputTxt = document.getElementById("txt");
 const mpPanel = document.getElementById("multiplayer-panel");
 const playersListDiv = document.getElementById("players-list");
-
-const remotePopup = document.getElementById("remote-popup");
-const remoteCanvas = document.getElementById("remote-canvas");
-const remoteCtx = remoteCanvas.getContext("2d");
+const statusHint = document.getElementById("status-hint");
 
 let peer, connections = {};
-let myId = "";
-let userName = "";
-let isConnected = false;
-let activeRemoteConn = null;
-
+let myId = "", userName = "", isConnected = false;
 let localParticles = [];
-const amount = 3000;
+const amount = 25000; 
+let isIdle = true; 
+let currentImg = null;
+let idleRotation = 0;
+let pulseOffset = 0;
 
-let remoteParticles = [];
-let remoteInputVal = "";
+const offCanvas = document.createElement("canvas");
+const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
 
-// --- SISTEMA P2P MELHORADO ---
+function generateID() { return Math.random().toString(36).substr(2, 5).toUpperCase(); }
 
-function generateID() {
-    return Math.random().toString(36).substr(2, 5).toUpperCase();
-}
-
-function joinLobby() {
+async function joinLobby() {
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
     userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
     let roomId = document.getElementById("target-id").value.trim().toUpperCase();
-    
     myId = roomId || generateID();
-    
-    // CORREÇÃO: Usamos um ID determinístico baseado na sala + nick
-    // No PeerJS público, isso ajuda a encontrar o "host" ou outros membros
     const fullPeerId = "BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_');
-    
     peer = new Peer(fullPeerId);
-
-    peer.on('open', (id) => {
+    peer.on('open', () => {
         document.getElementById("room-id-display").textContent = myId;
         document.getElementById("peer-status").textContent = "ONLINE";
         document.getElementById("peer-status").style.color = "#0f0";
         isConnected = true;
         mpPanel.style.display = "none";
-        
-        // CORREÇÃO: Tenta notificar a rede que entramos (Simulação de Discovery)
-        console.log("Entrou como:", id);
+        applyAudioStates();
+        playBeep(440, 0.1, 0.2);
         updatePlayerList();
     });
-
-    // Quando alguém se conecta a nós
-    peer.on('connection', (conn) => {
-        setupConnection(conn);
-    });
-
-    // Tratamento de erro (ID já ocupado ou erro de rede)
-    peer.on('error', (err) => {
-        if(err.type === 'unavailable-id') {
-            // Se o ID com Nick já existe, gera um novo nick
-            document.getElementById("user-nick").value = userName + Math.floor(Math.random()*10);
-            joinLobby();
-        } else {
-            console.error("PeerJS Error:", err);
-            document.getElementById("peer-status").textContent = "ERRO CONEXÃO";
-            document.getElementById("peer-status").style.color = "red";
-        }
-    });
+    peer.on('connection', setupConnection);
 }
 
 function setupConnection(conn) {
-    // Extrai o nome do peer do ID formatado
-    const peerParts = conn.peer.split('_');
-    const peerName = peerParts[peerParts.length - 1];
-    
+    const peerName = conn.peer.split('_').pop();
     connections[conn.peer] = { conn, name: peerName };
-
-    conn.on('open', () => {
-        console.log("Conectado com:", peerName);
-        updatePlayerList();
-        // Envia nosso nick para confirmar
-        conn.send({ type: 'handshake', name: userName });
-    });
-
+    conn.on('open', () => { updatePlayerList(); conn.send({ type: 'handshake', name: userName }); });
     conn.on('data', (data) => {
-        if (data.type === 'chat') appendMessage(data.user, data.msg);
-        if (data.type === 'handshake') {
-            connections[conn.peer].name = data.name;
-            updatePlayerList();
-        }
-        if (data.type === 'text_sync' && activeRemoteConn?.peer === conn.peer) {
-            remoteInputVal = data.value;
-            syncParticles(remoteParticles, remoteInputVal, remoteCanvas, remoteCtx);
-        }
+        if (data.type === 'chat') { appendMessage(data.user, data.msg); playBeep(880, 0.05, 0.05); }
+        if (data.type === 'handshake') { connections[conn.peer].name = data.name; updatePlayerList(); }
     });
-
-    conn.on('close', () => {
-        delete connections[conn.peer];
-        updatePlayerList();
-    });
-
-    updatePlayerList();
-}
-
-// CORREÇÃO: Função para o usuário se conectar manualmente a alguém caso a lista demore
-function manualConnect() {
-    const targetNick = prompt("Digite o Nick exato do seu amigo:");
-    if(!targetNick) return;
-    const targetPeerId = "BALLS_ROOM_" + myId + "_" + targetNick.replace(/\s/g, '_');
-    const conn = peer.connect(targetPeerId);
-    setupConnection(conn);
+    conn.on('close', () => { delete connections[conn.peer]; updatePlayerList(); });
 }
 
 function updatePlayerList() {
-    playersListDiv.innerHTML = "";
-    
-    const me = document.createElement("div");
-    me.className = "player-item me";
-    me.textContent = userName + " (VOCÊ)";
-    playersListDiv.appendChild(me);
-
-    Object.keys(connections).forEach(peerId => {
-        const p = document.createElement("div");
-        p.className = "player-item";
-        p.innerHTML = `<span>${connections[peerId].name}</span> <span style="font-size:8px; opacity:0.5;">ONLINE</span>`;
-        p.onclick = () => openRemoteCanvas(peerId);
-        playersListDiv.appendChild(p);
+    playersListDiv.innerHTML = `<div class="player-item me">${userName} (VOCÊ)</div>`;
+    Object.keys(connections).forEach(id => {
+        const div = document.createElement("div"); div.className = "player-item";
+        div.textContent = connections[id].name; playersListDiv.appendChild(div);
     });
-
-    // Botão auxiliar se a lista estiver vazia
-    if(Object.keys(connections).length === 0) {
-        const hint = document.createElement("div");
-        hint.style.fontSize = "9px";
-        hint.style.marginTop = "10px";
-        hint.style.color = "#444";
-        hint.innerHTML = "Esperando conexão...<br><button onclick='manualConnect()' style='background:none; border:1px solid #333; color:#666; font-size:9px; cursor:pointer;'>Conectar via Nick</button>";
-        playersListDiv.appendChild(hint);
-    }
 }
-
-function openRemoteCanvas(peerId) {
-    activeRemoteConn = connections[peerId].conn;
-    document.getElementById("popup-title").textContent = "VISUALIZANDO: " + connections[peerId].name;
-    remotePopup.style.display = "flex";
-    remoteParticles = [];
-    for(let i=0; i<amount; i++) remoteParticles.push(new Particle(i, remoteCanvas));
-    resizeRemote();
-}
-
-document.getElementById("close-popup").onclick = () => {
-    remotePopup.style.display = "none";
-    activeRemoteConn = null;
-};
-
-// --- CHAT GLOBAL ---
-
-document.getElementById("chat-input").onkeydown = (e) => {
-    if(e.key === "Enter") {
-        const msg = e.target.value.trim();
-        if(!isConnected) { mpPanel.style.display = "flex"; return; }
-        if(msg) {
-            appendMessage(userName, msg);
-            Object.values(connections).forEach(p => p.conn.send({ type: 'chat', user: userName, msg }));
-            e.target.value = "";
-        }
-    }
-};
 
 function appendMessage(u, m) {
     const div = document.createElement("div");
-    div.style.marginBottom = "5px";
     div.innerHTML = `<strong>${u}:</strong> ${m}`;
     const box = document.getElementById("chat-messages");
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
+    box.appendChild(div); box.scrollTop = box.scrollHeight;
 }
 
 document.getElementById("chat-toggle").onclick = () => {
@@ -312,100 +349,185 @@ document.getElementById("chat-toggle").onclick = () => {
     win.style.display = win.style.display === "flex" ? "none" : "flex";
 };
 
-// --- ENGINE DE PARTÍCULAS ---
-
+// --- PARTICLE ENGINE ---
 class Particle {
-    constructor(i, targetCanvas) {
-        this.x = Math.random() * targetCanvas.width;
-        this.y = Math.random() * targetCanvas.height;
+    constructor(idx) {
+        this.index = idx;
+        this.reset(idx);
+    }
+    reset(idx) {
+        this.x = Math.random() * (canvas.width || 800);
+        this.y = Math.random() * (canvas.height || 600);
         this.dest = { x: this.x, y: this.y };
         this.vx = 0; this.vy = 0;
-        this.r = Math.random() * 1.5 + 0.5;
-        this.hue = Math.random() * 360;
+        this.r = 1.0;
+        this.color = "rgba(0, 255, 0, 1)";
+        this.targetColor = this.color;
+        
+        this.freqIdx = idx % 128;
+        this.rowIdx = Math.floor(idx / 128);
+        this.idleAngleOffset = (idx / amount) * Math.PI * 2;
     }
-    update(c, targetCtx) {
-        const accX = (this.dest.x - this.x) / 20;
-        const accY = (this.dest.y - this.y) / 20;
-        this.vx = (this.vx + accX) * 0.8;
-        this.vy = (this.vy + accY) * 0.8;
-        this.x += this.vx; this.y += this.vy;
+    
+    update() {
+        if (isIdle) {
+            if (!bgmMuted && isAudioInited && dataArray && !activePlayer.paused) {
+                // SPECTROGRAM MODE
+                const freqValue = dataArray[this.freqIdx] / 255;
+                const barWidth = canvas.width / 128;
+                const targetX = (this.freqIdx * barWidth) + (barWidth / 2);
+                const barHeight = freqValue * canvas.height * 0.8;
+                const targetY = canvas.height - (this.rowIdx / (amount/128)) * barHeight - 20;
 
-        targetCtx.fillStyle = `hsl(${this.hue}, 80%, 60%)`;
-        targetCtx.beginPath();
-        targetCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-        targetCtx.fill();
+                this.dest.x = targetX + (Math.random() - 0.5) * (barWidth * 0.4);
+                this.dest.y = targetY;
+
+                if (freqValue > 0.85 && this.rowIdx < 5) {
+                    this.targetColor = "white";
+                    this.r = 2.5;
+                } else {
+                    this.targetColor = `rgba(0, ${Math.floor(120 + freqValue * 135)}, 0, ${0.2 + freqValue * 0.8})`;
+                    this.r = 1.0 + freqValue * 2;
+                }
+            } else {
+                // IDLE CIRCLE MODE
+                const cx = canvas.width / 2, cy = canvas.height / 2;
+                const radius = Math.min(canvas.width, canvas.height) * 0.3;
+                const angle = this.idleAngleOffset + idleRotation;
+                this.dest.x = cx + Math.cos(angle) * radius;
+                this.dest.y = cy + Math.sin(angle) * radius;
+
+                let angleDiff = Math.abs((angle % (Math.PI * 2)) - (pulseOffset % (Math.PI * 2)));
+                if (angleDiff > Math.PI) angleDiff = Math.PI * 2 - angleDiff;
+
+                if (angleDiff < 0.25) {
+                    this.targetColor = "white";
+                    this.r = 2.2;
+                } else {
+                    this.targetColor = "rgba(0, 150, 0, 0.35)";
+                    this.r = 1.1;
+                }
+            }
+        }
+
+        const ease = isIdle ? 11 : 16;
+        this.vx = (this.dest.x - this.x) / ease;
+        this.vy = (this.dest.y - this.y) / ease;
+        this.x += this.vx; this.y += this.vy;
+        
+        ctx.fillStyle = this.targetColor;
+        ctx.fillRect(this.x, this.y, this.r, this.r);
     }
 }
 
-function syncParticles(pArray, text, tCanvas, tCtx) {
-    if(!text) return;
-    const offCanvas = document.createElement("canvas");
-    offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
-    const offCtx = offCanvas.getContext("2d");
+function handleSync() {
+    const text = inputTxt.value.trim();
+    if (!text && !currentImg) {
+        isIdle = true;
+        statusHint.textContent = (!bgmMuted && !activePlayer.paused) ? "Frequências Ativas 🌊" : "Protocolo em Standby... 📡";
+        return;
+    }
+
+    isIdle = false;
+    statusHint.textContent = currentImg ? "Renderizando Visual... 🖼️" : "Processando Código... ✍️";
     
-    offCtx.fillStyle = "white";
-    offCtx.textAlign = "center";
-    offCtx.textBaseline = "middle";
-    offCtx.font = `bold ${Math.min(tCanvas.width/(text.length*0.6 + 1), 120)}px sans-serif`;
-    offCtx.fillText(text, tCanvas.width/2, tCanvas.height/2);
-    
-    const data = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
+    offCanvas.width = canvas.width;
+    offCanvas.height = canvas.height;
+    offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+
+    if (currentImg) {
+        const canvasRatio = canvas.width / canvas.height;
+        const imgRatio = currentImg.width / currentImg.height;
+        let drawW, drawH;
+        if (imgRatio > canvasRatio) {
+            drawW = canvas.width * 0.95; drawH = drawW / imgRatio;
+        } else {
+            drawH = canvas.height * 0.85; drawW = drawH * imgRatio;
+        }
+        const startX = (canvas.width - drawW) / 2;
+        const startY = (canvas.height - drawH) / 2;
+        offCtx.drawImage(currentImg, startX, startY, drawW, drawH);
+    } else {
+        const lines = text.split("\n");
+        const fontSize = Math.min(canvas.width / 10, canvas.height / (lines.length * 1.5), 140);
+        offCtx.font = `bold ${fontSize}px sans-serif`;
+        offCtx.fillStyle = "white";
+        offCtx.textAlign = "center";
+        offCtx.textBaseline = "middle";
+        lines.forEach((l, i) => {
+            const y = (canvas.height / 2) - ((lines.length - 1) * fontSize * 0.6) + (i * fontSize * 1.2);
+            offCtx.fillText(l, canvas.width / 2, y);
+        });
+    }
+
+    const imgData = offCtx.getImageData(0, 0, canvas.width, canvas.height).data;
     const points = [];
-    for(let y=0; y<tCanvas.height; y+=4) {
-        for(let x=0; x<tCanvas.width; x+=4) {
-            if(data[(y*tCanvas.width + x)*4 + 3] > 128) points.push({x, y});
+    const step = currentImg ? 2 : 4; 
+
+    for (let y = 0; y < canvas.height; y += step) {
+        for (let x = 0; x < canvas.width; x += step) {
+            const i = (y * canvas.width + x) * 4;
+            if (imgData[i + 3] > 120) {
+                points.push({ x, y, r: imgData[i], g: imgData[i+1], b: imgData[i+2] });
+            }
         }
     }
-    if(points.length > 0) {
-        pArray.forEach((p, i) => {
-            p.dest = points[i % points.length];
+
+    if (points.length > 0) {
+        localParticles.forEach((p, i) => {
+            const pt = points[i % points.length];
+            p.dest.x = pt.x; p.dest.y = pt.y;
+            p.targetColor = `rgb(${pt.r}, ${pt.g}, ${pt.b})`;
+            p.r = Math.random() * 1.3 + 0.7;
         });
     }
 }
 
-inputTxt.oninput = () => {
-    syncParticles(localParticles, inputTxt.value, canvas, ctx);
-    Object.values(connections).forEach(p => p.conn.send({ type: 'text_sync', value: inputTxt.value }));
+document.getElementById('img-upload').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => { currentImg = img; handleSync(); };
+        img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
 };
+
+function clearMedia() { currentImg = null; document.getElementById('img-upload').value = ""; handleSync(); }
+inputTxt.oninput = handleSync;
 
 function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-}
-
-function resizeRemote() {
-    const container = document.getElementById("remote-canvas-container");
-    remoteCanvas.width = container.clientWidth;
-    remoteCanvas.height = container.clientHeight;
+    handleSync();
 }
 
 function loop() {
-    ctx.fillStyle = "rgba(10, 10, 10, 0.2)";
+    ctx.fillStyle = "rgba(10, 10, 10, 0.4)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    localParticles.forEach(p => p.update(canvas, ctx));
-
-    if(remotePopup.style.display === "flex") {
-        remoteCtx.fillStyle = "rgba(5, 5, 5, 0.2)";
-        remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
-        remoteParticles.forEach(p => p.update(remoteCanvas, remoteCtx));
+    
+    if (isIdle) {
+        idleRotation += 0.015;
+        pulseOffset += 0.045;
+        if (!bgmMuted && isAudioInited && analyser && !activePlayer.paused) {
+            analyser.getByteFrequencyData(dataArray);
+        }
     }
 
+    localParticles.forEach(p => p.update());
     requestAnimationFrame(loop);
 }
 
 window.addEventListener('resize', resize);
-resize();
-for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
-loop();
+for(let i=0; i<amount; i++) localParticles.push(new Particle(i));
 
-inputTxt.onkeydown = (e) => {
-    if(!isConnected) {
-        mpPanel.style.display = "flex";
-        e.preventDefault();
-    }
+window.onload = () => { 
+    applyAudioStates(); 
+    resize(); 
+    loop(); 
 };
-
-window.onload = () => { mpPanel.style.display = "flex"; };
 </script>
 </body>
 </html>
