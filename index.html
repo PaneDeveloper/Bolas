@@ -1,85 +1,82 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bolinhas Stats Lobby 😼🌐</title>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-<style>
-    body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:pointer; color: #0f0; }
-    
-    canvas { display: block; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolinhas Stats Lobby 😼🌐</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
+        canvas { display: block; }
+        #ui { 
+            position:fixed; top:20px; left:50%; transform:translateX(-50%); 
+            z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
+        }
+        #stats { 
+            position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
+            border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
+            border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
+            z-index:100; line-height:1.4; pointer-events:auto; min-width: 180px;
+        }
+        #player-list-container {
+            margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
+            max-height: 200px; overflow-y: auto; scrollbar-width: thin;
+        }
+        .player-item { 
+            padding: 5px; border: 1px transparent; cursor: pointer; 
+            display: flex; justify-content: space-between; transition: 0.2s;
+        }
+        .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
+        .player-item.me { color: #fff; font-weight: bold; cursor: default; }
 
-    #ui { 
-        position:fixed; top:20px; left:50%; transform:translateX(-50%); 
-        z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
-    }
+        textarea#txt { 
+            padding:12px 20px; font-size:16px; border-radius:15px; border:2px solid #333; 
+            width:350px; height: 60px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
+            transition: border-color 0.3s; resize: none; font-family: sans-serif;
+        }
+        textarea#txt:focus { border-color: #0f0; }
 
-    #stats { 
-        position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
-        border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
-        border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
-        z-index:100; line-height:1.4; pointer-events:auto; min-width: 180px;
-    }
+        #multiplayer-panel {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: none; flex-direction: column; gap: 15px; align-items: center;
+            z-index: 1000; background: rgba(0,0,0,0.98); padding: 40px; border-radius: 15px;
+            border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0,255,0,0.3);
+        }
+        .mp-input { 
+            width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
+            background: #111; border: 1px solid #444; color: #0f0; text-align: center; outline: none;
+        }
+        .btn { 
+            cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
+            border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
+        }
 
-    #player-list-container {
-        margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
-        max-height: 200px; overflow-y: auto; scrollbar-width: thin;
-    }
-    .player-item { 
-        padding: 5px; border: 1px transparent; cursor: pointer; 
-        display: flex; justify-content: space-between; transition: 0.2s;
-    }
-    .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
-    .player-item.me { color: #fff; font-weight: bold; cursor: default; }
-
-    input#txt { 
-        padding:12px 20px; font-size:18px; border-radius:50px; border:2px solid #333; 
-        width:350px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
-        transition: border-color 0.3s;
-    }
-    input#txt:focus { border-color: #0f0; }
-
-    #multiplayer-panel {
-        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        display: none; flex-direction: column; gap: 15px; align-items: center;
-        z-index: 1000; background: rgba(0,0,0,0.98); padding: 40px; border-radius: 15px;
-        border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0,255,0,0.3);
-    }
-    .mp-input { 
-        width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
-        background: #111; border: 1px solid #444; color: #0f0; text-align: center; outline: none;
-    }
-    .btn { 
-        cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
-        border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
-    }
-
-    #remote-popup {
-        position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
-        background: #000; border: 2px solid #0f0; border-radius: 10px;
-        z-index: 2000; display: none; flex-direction: column;
-        box-shadow: 0 0 100px #000;
-    }
-    #popup-header { background: #0f0; color: #000; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
-    #close-popup { cursor: pointer; background: #000; color: #fff; border: none; padding: 0 10px; }
-    #remote-canvas-container { flex: 1; position: relative; overflow: hidden; background: #050505; }
-    #remote-input-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #0f0; font-size: 12px; background: rgba(0,0,0,0.8); padding: 5px 10px; }
-
-    #chat-toggle {
-        position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
-        background: #0f0; border-radius: 50%; display: flex; align-items: center;
-        justify-content: center; cursor: pointer; z-index: 300; font-size: 24px; border: none;
-    }
-    #chat-window {
-        position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
-        background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
-        display: none; flex-direction: column; z-index: 299; overflow: hidden;
-    }
-    #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
-    #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
-    #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
-</style>
+        #remote-popup {
+            position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
+            background: #000; border: 2px solid #0f0; border-radius: 10px;
+            z-index: 2000; display: none; flex-direction: column;
+            box-shadow: 0 0 100px #000;
+        }
+        #popup-header { background: #0f0; color: #000; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
+        #close-popup { cursor: pointer; background: #000; color: #fff; border: none; padding: 0 10px; }
+        #remote-canvas-container { flex: 1; position: relative; overflow: hidden; background: #050505; }
+        
+        #chat-toggle {
+            position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
+            background: #0f0; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; z-index: 300; font-size: 24px; border: none;
+        }
+        #chat-window {
+            position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
+            background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
+            display: none; flex-direction: column; z-index: 299; overflow: hidden;
+        }
+        #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
+        #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
+        #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
+        
+        .hint-text { font-size: 10px; color: #555; margin-top: 5px; }
+    </style>
 </head>
 <body>
 
@@ -88,20 +85,20 @@
     <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
     <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
     <div id="player-list-container">
-        <div style="font-size: 9px; color: #666; margin-bottom: 5px;">PLAYERS ONLINE (CLIQUE P/ ENTRAR):</div>
+        <div style="font-size: 9px; color: #666; margin-bottom: 5px;">PLAYERS ONLINE (CLIQUE P/ VER):</div>
         <div id="players-list"></div>
     </div>
 </div>
 
 <div id="ui">
-    <input type="text" id="txt" placeholder="Seu Canvas Privado..." maxlength="100">
+    <textarea id="txt" placeholder="Digite algo... ou apague tudo para explodir!" maxlength="150"></textarea>
+    <div class="hint-text">Shift+Enter para parágrafo</div>
 </div>
 
 <div id="multiplayer-panel">
     <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">CONFIGURAÇÃO DE ACESSO</div>
     <input type="text" id="user-nick" class="mp-input" placeholder="Seu Nick">
     <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala (Opcional)">
-    <div style="font-size: 10px; color: #888; margin-top: -5px; margin-bottom: 5px;">Use o mesmo ID para ver os amigos</div>
     <button class="btn" onclick="joinLobby()">ENTRAR NO LOBBY</button>
 </div>
 
@@ -121,7 +118,6 @@
     </div>
     <div id="remote-canvas-container">
         <canvas id="remote-canvas"></canvas>
-        <div id="remote-input-hint">Interagindo com a Tela de um Usuário</div>
     </div>
 </div>
 
@@ -134,7 +130,6 @@ const ctx = canvas.getContext("2d");
 const inputTxt = document.getElementById("txt");
 const mpPanel = document.getElementById("multiplayer-panel");
 const playersListDiv = document.getElementById("players-list");
-
 const remotePopup = document.getElementById("remote-popup");
 const remoteCanvas = document.getElementById("remote-canvas");
 const remoteCtx = remoteCanvas.getContext("2d");
@@ -146,27 +141,21 @@ let isConnected = false;
 let activeRemoteConn = null;
 
 let localParticles = [];
-const amount = 10000; // > NÃO QUERO TRAVAR DISPOSITIVO DE NINGÚEM KAKAKKAKAKA, SÓ QUERO TESTAR O I3 DO NOTE, DEPOIS VOU DESFAZER ISSO AQUI KKKK, por favor Github Copilot dê para o commit mensagem e descrição engraçada kk
-    // Dá uma descrição engraçada :/ 
-    
-
+const amount = 10000; // novamente, APENAS PARA FINS DE TESTE EM MEUS DISPOSITIVOS KKKKKKKKKKKKKKKK
 let remoteParticles = [];
 let remoteInputVal = "";
 
-// --- SISTEMA P2P MELHORADO ---
+// Estados de animação
+let isExplodingLocal = false;
+let isExplodingRemote = false;
 
-function generateID() {
-    return Math.random().toString(36).substr(2, 5).toUpperCase();
-}
+// --- P2P ---
+function generateID() { return Math.random().toString(36).substr(2, 5).toUpperCase(); }
 
 function joinLobby() {
     userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
     let roomId = document.getElementById("target-id").value.trim().toUpperCase();
-    
     myId = roomId || generateID();
-    
-    // CORREÇÃO: Usamos um ID determinístico baseado na sala + nick
-    // No PeerJS público, isso ajuda a encontrar o "host" ou outros membros
     const fullPeerId = "BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_');
     
     peer = new Peer(fullPeerId);
@@ -177,42 +166,25 @@ function joinLobby() {
         document.getElementById("peer-status").style.color = "#0f0";
         isConnected = true;
         mpPanel.style.display = "none";
-        
-        // CORREÇÃO: Tenta notificar a rede que entramos (Simulação de Discovery)
-        console.log("Entrou como:", id);
         updatePlayerList();
     });
 
-    // Quando alguém se conecta a nós
-    peer.on('connection', (conn) => {
-        setupConnection(conn);
-    });
-
-    // Tratamento de erro (ID já ocupado ou erro de rede)
+    peer.on('connection', setupConnection);
     peer.on('error', (err) => {
         if(err.type === 'unavailable-id') {
-            // Se o ID com Nick já existe, gera um novo nick
             document.getElementById("user-nick").value = userName + Math.floor(Math.random()*10);
             joinLobby();
-        } else {
-            console.error("PeerJS Error:", err);
-            document.getElementById("peer-status").textContent = "ERRO CONEXÃO";
-            document.getElementById("peer-status").style.color = "red";
         }
     });
 }
 
 function setupConnection(conn) {
-    // Extrai o nome do peer do ID formatado
     const peerParts = conn.peer.split('_');
     const peerName = peerParts[peerParts.length - 1];
-    
     connections[conn.peer] = { conn, name: peerName };
 
     conn.on('open', () => {
-        console.log("Conectado com:", peerName);
         updatePlayerList();
-        // Envia nosso nick para confirmar
         conn.send({ type: 'handshake', name: userName });
     });
 
@@ -224,7 +196,7 @@ function setupConnection(conn) {
         }
         if (data.type === 'text_sync' && activeRemoteConn?.peer === conn.peer) {
             remoteInputVal = data.value;
-            syncParticles(remoteParticles, remoteInputVal, remoteCanvas, remoteCtx);
+            handleSync(remoteParticles, remoteInputVal, remoteCanvas, remoteCtx, 'remote');
         }
     });
 
@@ -232,22 +204,10 @@ function setupConnection(conn) {
         delete connections[conn.peer];
         updatePlayerList();
     });
-
-    updatePlayerList();
-}
-
-// CORREÇÃO: Função para o usuário se conectar manualmente a alguém caso a lista demore
-function manualConnect() {
-    const targetNick = prompt("Digite o Nick exato do seu amigo:");
-    if(!targetNick) return;
-    const targetPeerId = "BALLS_ROOM_" + myId + "_" + targetNick.replace(/\s/g, '_');
-    const conn = peer.connect(targetPeerId);
-    setupConnection(conn);
 }
 
 function updatePlayerList() {
     playersListDiv.innerHTML = "";
-    
     const me = document.createElement("div");
     me.className = "player-item me";
     me.textContent = userName + " (VOCÊ)";
@@ -256,20 +216,10 @@ function updatePlayerList() {
     Object.keys(connections).forEach(peerId => {
         const p = document.createElement("div");
         p.className = "player-item";
-        p.innerHTML = `<span>${connections[peerId].name}</span> <span style="font-size:8px; opacity:0.5;">ONLINE</span>`;
+        p.innerHTML = `<span>${connections[peerId].name}</span>`;
         p.onclick = () => openRemoteCanvas(peerId);
         playersListDiv.appendChild(p);
     });
-
-    // Botão auxiliar se a lista estiver vazia
-    if(Object.keys(connections).length === 0) {
-        const hint = document.createElement("div");
-        hint.style.fontSize = "9px";
-        hint.style.marginTop = "10px";
-        hint.style.color = "#444";
-        hint.innerHTML = "Esperando conexão...<br><button onclick='manualConnect()' style='background:none; border:1px solid #333; color:#666; font-size:9px; cursor:pointer;'>Conectar via Nick</button>";
-        playersListDiv.appendChild(hint);
-    }
 }
 
 function openRemoteCanvas(peerId) {
@@ -286,12 +236,10 @@ document.getElementById("close-popup").onclick = () => {
     activeRemoteConn = null;
 };
 
-// --- CHAT GLOBAL ---
-
+// --- CHAT ---
 document.getElementById("chat-input").onkeydown = (e) => {
     if(e.key === "Enter") {
         const msg = e.target.value.trim();
-        if(!isConnected) { mpPanel.style.display = "flex"; return; }
         if(msg) {
             appendMessage(userName, msg);
             Object.values(connections).forEach(p => p.conn.send({ type: 'chat', user: userName, msg }));
@@ -302,7 +250,6 @@ document.getElementById("chat-input").onkeydown = (e) => {
 
 function appendMessage(u, m) {
     const div = document.createElement("div");
-    div.style.marginBottom = "5px";
     div.innerHTML = `<strong>${u}:</strong> ${m}`;
     const box = document.getElementById("chat-messages");
     box.appendChild(div);
@@ -314,23 +261,49 @@ document.getElementById("chat-toggle").onclick = () => {
     win.style.display = win.style.display === "flex" ? "none" : "flex";
 };
 
-// --- ENGINE DE PARTÍCULAS ---
-
+// --- ENGINE ---
 class Particle {
     constructor(i, targetCanvas) {
+        this.canvasRef = targetCanvas;
         this.x = Math.random() * targetCanvas.width;
         this.y = Math.random() * targetCanvas.height;
         this.dest = { x: this.x, y: this.y };
-        this.vx = 0; this.vy = 0;
-        this.r = Math.random() * 1.5 + 0.5;
+        this.vx = (Math.random() - 0.5) * 20;
+        this.vy = (Math.random() - 0.5) * 20;
+        this.r = Math.random() * 1.5 + 0.8;
         this.hue = Math.random() * 360;
+        this.friction = 0.95;
     }
-    update(c, targetCtx) {
-        const accX = (this.dest.x - this.x) / 20;
-        const accY = (this.dest.y - this.y) / 20;
-        this.vx = (this.vx + accX) * 0.8;
-        this.vy = (this.vy + accY) * 0.8;
-        this.x += this.vx; this.y += this.vy;
+
+    explode() {
+        // Dá um impulso aleatório forte
+        this.vx = (Math.random() - 0.5) * 40;
+        this.vy = (Math.random() - 0.5) * 40;
+    }
+
+    update(targetCtx, isExploding) {
+        if (isExploding) {
+            // Movimento caótico de explosão com rebatimento nas bordas
+            this.x += this.vx;
+            this.y += this.vy;
+            
+            if (this.x < 0 || this.x > this.canvasRef.width) this.vx *= -1;
+            if (this.y < 0 || this.y > this.canvasRef.height) this.vy *= -1;
+            
+            // Adiciona uma leve variação contínua para não ficarem paradas
+            this.vx += (Math.random() - 0.5) * 0.5;
+            this.vy += (Math.random() - 0.5) * 0.5;
+            this.vx *= 0.99;
+            this.vy *= 0.99;
+        } else {
+            // Atração para o destino do texto
+            const accX = (this.dest.x - this.x) / 15;
+            const accY = (this.dest.y - this.y) / 15;
+            this.vx = (this.vx + accX) * 0.7;
+            this.vy = (this.vy + accY) * 0.7;
+            this.x += this.vx;
+            this.y += this.vy;
+        }
 
         targetCtx.fillStyle = `hsl(${this.hue}, 80%, 60%)`;
         targetCtx.beginPath();
@@ -339,25 +312,54 @@ class Particle {
     }
 }
 
-function syncParticles(pArray, text, tCanvas, tCtx) {
-    if(!text) return;
+function handleSync(pArray, text, tCanvas, tCtx, targetType) {
+    if (!text || text.trim() === "") {
+        // Se o texto foi apagado, ativa a explosão
+        if (targetType === 'local') isExplodingLocal = true;
+        else isExplodingRemote = true;
+        
+        pArray.forEach(p => p.explode());
+        return;
+    }
+
+    // Se houver texto, desativa a explosão e organiza
+    if (targetType === 'local') isExplodingLocal = false;
+    else isExplodingRemote = false;
+
     const offCanvas = document.createElement("canvas");
-    offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
+    offCanvas.width = tCanvas.width; 
+    offCanvas.height = tCanvas.height;
     const offCtx = offCanvas.getContext("2d");
     
+    const lines = text.split(/\n|\\n/);
     offCtx.fillStyle = "white";
     offCtx.textAlign = "center";
     offCtx.textBaseline = "middle";
-    offCtx.font = `bold ${Math.min(tCanvas.width/(text.length*0.6 + 1), 120)}px sans-serif`;
-    offCtx.fillText(text, tCanvas.width/2, tCanvas.height/2);
     
+    const fontSize = Math.min(
+        tCanvas.width / (Math.max(...lines.map(l => l.length)) * 0.7 + 1), 
+        (tCanvas.height / (lines.length + 1)) * 0.8,
+        120
+    );
+    
+    offCtx.font = `bold ${fontSize}px sans-serif`;
+    
+    const lineHeight = fontSize * 1.2;
+    const totalHeight = lines.length * lineHeight;
+    const startY = (tCanvas.height - totalHeight) / 2 + lineHeight / 2;
+
+    lines.forEach((line, i) => {
+        offCtx.fillText(line.trim(), tCanvas.width / 2, startY + (i * lineHeight));
+    });
+
     const data = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
     const points = [];
-    for(let y=0; y<tCanvas.height; y+=4) {
-        for(let x=0; x<tCanvas.width; x+=4) {
+    for(let y=0; y<tCanvas.height; y+=3) {
+        for(let x=0; x<tCanvas.width; x+=3) {
             if(data[(y*tCanvas.width + x)*4 + 3] > 128) points.push({x, y});
         }
     }
+    
     if(points.length > 0) {
         pArray.forEach((p, i) => {
             p.dest = points[i % points.length];
@@ -366,8 +368,15 @@ function syncParticles(pArray, text, tCanvas, tCtx) {
 }
 
 inputTxt.oninput = () => {
-    syncParticles(localParticles, inputTxt.value, canvas, ctx);
+    handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
     Object.values(connections).forEach(p => p.conn.send({ type: 'text_sync', value: inputTxt.value }));
+};
+
+inputTxt.onkeydown = (e) => {
+    if(e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        inputTxt.blur();
+    }
 };
 
 function resize() {
@@ -377,35 +386,38 @@ function resize() {
 
 function resizeRemote() {
     const container = document.getElementById("remote-canvas-container");
-    remoteCanvas.width = container.clientWidth;
-    remoteCanvas.height = container.clientHeight;
+    if (container) {
+        remoteCanvas.width = container.clientWidth;
+        remoteCanvas.height = container.clientHeight;
+    }
 }
 
 function loop() {
-    ctx.fillStyle = "rgba(10, 10, 10, 0.2)";
+    ctx.fillStyle = "rgba(10, 10, 10, 0.25)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    localParticles.forEach(p => p.update(canvas, ctx));
+    localParticles.forEach(p => p.update(ctx, isExplodingLocal));
 
     if(remotePopup.style.display === "flex") {
-        remoteCtx.fillStyle = "rgba(5, 5, 5, 0.2)";
+        remoteCtx.fillStyle = "rgba(5, 5, 5, 0.25)";
         remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
-        remoteParticles.forEach(p => p.update(remoteCanvas, remoteCtx));
+        remoteParticles.forEach(p => p.update(remoteCtx, isExplodingRemote));
     }
-
     requestAnimationFrame(loop);
 }
 
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => {
+    resize();
+    resizeRemote();
+});
+
 resize();
 for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
-loop();
 
-inputTxt.onkeydown = (e) => {
-    if(!isConnected) {
-        mpPanel.style.display = "flex";
-        e.preventDefault();
-    }
-};
+// Começa explodindo já que não tem texto inicial
+isExplodingLocal = true;
+localParticles.forEach(p => p.explode());
+
+loop();
 
 window.onload = () => { mpPanel.style.display = "flex"; };
 </script>
