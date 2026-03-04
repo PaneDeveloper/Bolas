@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Bolinhas Stats Multiplayer 😼🌐</title>
+<title>Bolinhas Stats Lobby 😼🌐</title>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 <style>
-    body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; }
+    body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
     
+    canvas { display: block; }
+
     #ui { 
-        position:fixed; top:30px; left:50%; transform:translateX(-50%); 
+        position:fixed; top:20px; left:50%; transform:translateX(-50%); 
         z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
     }
 
@@ -17,391 +19,364 @@
         position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
         border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
         border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
-        z-index:100; line-height:1.4; pointer-events:auto;
+        z-index:100; line-height:1.4; pointer-events:auto; min-width: 180px;
     }
 
-    input { 
+    /* ALTERAÇÃO: Container para a lista de players online (suporta 50+) */
+    #player-list-container {
+        margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
+        max-height: 200px; overflow-y: auto; scrollbar-width: thin;
+    }
+    .player-item { 
+        padding: 5px; border: 1px transparent; cursor: pointer; 
+        display: flex; justify-content: space-between; transition: 0.2s;
+    }
+    .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
+    .player-item.me { color: #fff; font-weight: bold; cursor: default; }
+
+    input#txt { 
         padding:12px 20px; font-size:18px; border-radius:50px; border:2px solid #333; 
         width:350px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
         transition: border-color 0.3s;
     }
-    input:focus { border-color: #0f0; }
+    input#txt:focus { border-color: #0f0; }
 
     #multiplayer-panel {
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
         display: none; flex-direction: column; gap: 15px; align-items: center;
-        z-index: 500; background: rgba(0,0,0,0.95); padding: 30px; border-radius: 15px;
-        border: 2px solid #0f0; box-shadow: 0 0 30px rgba(0,255,0,0.5);
+        z-index: 1000; background: rgba(0,0,0,0.98); padding: 40px; border-radius: 15px;
+        border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0,255,0,0.3);
     }
-
     .mp-input { 
         width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
-        background: #111; border: 1px solid #444; color: #0f0; text-align: center;
-        outline: none;
+        background: #111; border: 1px solid #444; color: #0f0; text-align: center; outline: none;
     }
-
     .btn { 
         cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
-        border: none; border-radius: 5px; font-weight: bold; font-size: 16px;
-        transition: all 0.2s; width: 100%;
+        border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
     }
+
+    /* ALTERAÇÃO: Estilo para o Popup do Canvas Alheio */
+    #remote-popup {
+        position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
+        background: #000; border: 2px solid #0f0; border-radius: 10px;
+        z-index: 2000; display: none; flex-direction: column;
+        box-shadow: 0 0 100px #000;
+    }
+    #popup-header { background: #0f0; color: #000; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
+    #close-popup { cursor: pointer; background: #000; color: #fff; border: none; padding: 0 10px; }
+    #remote-canvas-container { flex: 1; position: relative; overflow: hidden; background: #050505; }
+    #remote-input-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #0f0; font-size: 12px; background: rgba(0,0,0,0.8); padding: 5px 10px; }
 
     #chat-toggle {
         position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
         background: #0f0; border-radius: 50%; display: flex; align-items: center;
-        justify-content: center; cursor: pointer; z-index: 300; box-shadow: 0 0 20px rgba(0,255,0,0.4);
-        font-size: 24px; border: none;
+        justify-content: center; cursor: pointer; z-index: 300; font-size: 24px; border: none;
     }
-
     #chat-window {
         position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
         background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
         display: none; flex-direction: column; z-index: 299; overflow: hidden;
-        box-shadow: 0 0 30px rgba(0,255,0,0.1);
     }
-
-    #chat-header { background: #0f0; color: #000; padding: 8px; font-weight: bold; font-size: 10px; text-align: center; letter-spacing: 1px;}
-    
-    #chat-messages { flex: 1; padding: 10px; overflow-y: auto; color: #0f0; font-size: 13px; scrollbar-width: thin; }
-    #chat-messages::-webkit-scrollbar { width: 4px; }
-    #chat-messages::-webkit-scrollbar-thumb { background: #0f0; }
-
-    #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; background: #000; }
-    #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; font-size: 14px; }
-
-    .msg-line { margin-bottom: 8px; word-break: break-all; }
-    .msg-user { color: #fff; font-weight: bold; }
-
-    #copy-notice {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        background: #0f0; color: #000; padding: 5px 15px; border-radius: 20px;
-        font-size: 12px; font-weight: bold; display: none; z-index: 1000;
-    }
+    #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
+    #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
+    #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
 </style>
 </head>
 <body>
 
 <div id="stats">
-    <div style="border-bottom: 1px solid #0f0; margin-bottom: 5px; padding-bottom: 5px;">ULTRA SECURE MULTIPLAYER</div>
-    <div>SALA (ID): <span id="my-id" style="color:white; font-weight:bold; letter-spacing:2px;">---</span></div>
-    <div>STATUS: <span id="peer-status" style="color:yellow">OFFLINE</span></div>
-    <hr style="border:0; border-top:1px solid #333">
-    <div>RAM: <span id="ram-val">N/A</span></div>
-    <div>FPS: <span id="fps-val">0</span></div>
-</div>
-
-<div id="ui">
-    <div class="input-container">
-        <input type="text" id="txt" placeholder="Digite para desenhar..." maxlength="100">
+    <div style="border-bottom: 1px solid #0f0; margin-bottom: 5px; padding-bottom: 5px; font-weight: bold;">HUB PROTOCOL Z</div>
+    <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
+    <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
+    <div id="player-list-container">
+        <!-- ALTERAÇÃO: UI da lista de jogadores online -->
+        <div style="font-size: 9px; color: #666; margin-bottom: 5px;">PLAYERS ONLINE (CLIQUE P/ ENTRAR):</div>
+        <div id="players-list"></div>
     </div>
 </div>
 
+<div id="ui">
+    <input type="text" id="txt" placeholder="Seu Canvas Privado..." maxlength="100">
+</div>
+
 <div id="multiplayer-panel">
-    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">SISTEMA MULTIPLAYER P2P</div>
-    <input type="text" id="user-nick" class="mp-input" placeholder="Nome de Usuário">
-    <input type="text" id="target-id" class="mp-input" placeholder="Código da Sala">
-    <button id="mp-btn" class="btn" onclick="handleMPAction()">ENTRAR/CRIAR</button>
-    <div style="color:#666; font-size:10px; margin-top:10px;">Deixe o código vazio para criar uma nova sala.</div>
+    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">CONFIGURAÇÃO DE ACESSO</div>
+    <input type="text" id="user-nick" class="mp-input" placeholder="Seu Nick">
+    <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala (Opcional)">
+    <button class="btn" onclick="joinLobby()">ENTRAR NO LOBBY</button>
 </div>
 
 <button id="chat-toggle">💬</button>
-
 <div id="chat-window">
-    <div id="chat-header">PROTOCOL_Z: ENCRYPTED_CHANNEL</div>
+    <div style="background:#0f0; color:#000; padding:5px; font-size:10px; text-align:center; font-weight:bold;">GLOBAL CHAT</div>
     <div id="chat-messages"></div>
     <div id="chat-input-area">
         <input type="text" id="chat-input" placeholder="Mensagem..." autocomplete="off">
     </div>
 </div>
 
-<div id="copy-notice">CÓDIGO COPIADO! 📋</div>
+<!-- ALTERAÇÃO: Popup que será aberto ao clicar em um usuário na lista -->
+<div id="remote-popup">
+    <div id="popup-header">
+        <span id="popup-title">Tela de: USER</span>
+        <button id="close-popup">X</button>
+    </div>
+    <div id="remote-canvas-container">
+        <canvas id="remote-canvas"></canvas>
+        <div id="remote-input-hint">Interagindo com a Tela de um Usuário</div>
+    </div>
+</div>
 
 <canvas id="canvas"></canvas>
 
 <script>
+// --- CONFIG E ESTADO ---
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const inputTxt = document.getElementById("txt");
-const uiBox = document.getElementById("ui");
 const mpPanel = document.getElementById("multiplayer-panel");
-const mpBtn = document.getElementById("mp-btn");
-const nickInput = document.getElementById("user-nick");
-const targetInput = document.getElementById("target-id");
-const chatToggle = document.getElementById("chat-toggle");
-const chatWindow = document.getElementById("chat-window");
-const chatMessages = document.getElementById("chat-messages");
-const chatInput = document.getElementById("chat-input");
+const playersListDiv = document.getElementById("players-list");
 
-const tCanvas = document.createElement("canvas");
-const tCtx = tCanvas.getContext("2d", { willReadFrequently: true });
+const remotePopup = document.getElementById("remote-popup");
+const remoteCanvas = document.getElementById("remote-canvas");
+const remoteCtx = remoteCanvas.getContext("2d");
 
-let particles = [];
-const amount = 3000; 
-let userName = "Anon";
-let peer, conn;
+// ALTERAÇÃO: Controle de múltiplas conexões para simular Lobby (Connections Map)
+let peer, connections = {};
+let myId = "";
+let userName = "";
 let isConnected = false;
+let activeRemoteConn = null; // Armazena a conexão do player que estamos espiando no popup
 
-// --- CRYPTO SUITE: PROTOCOL Z (10 LAYERS) ---
+// Motor de Partículas Local (Independente)
+let localParticles = [];
+const amount = 3000;
 
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 ";
+// ALTERAÇÃO: Variáveis exclusivas para renderizar o Canvas remoto dentro do Popup
+let remoteParticles = [];
+let remoteInputVal = "";
 
-const atbash = (str) => str.split('').map(c => {
-    const i = ALPHABET.indexOf(c);
-    return i === -1 ? c : ALPHABET[ALPHABET.length - 1 - i];
-}).join('');
+// --- SISTEMA P2P (MESH LOBBY) ---
 
-const caesar = (str, shift) => str.split('').map(c => {
-    const i = ALPHABET.indexOf(c);
-    return i === -1 ? c : ALPHABET[(i + shift + ALPHABET.length * 10) % ALPHABET.length];
-}).join('');
+function generateID() {
+    return Math.random().toString(36).substr(2, 5).toUpperCase();
+}
 
-const vigenere = (str, key, decrypt = false) => {
-    let result = "";
-    for (let i = 0, j = 0; i < str.length; i++) {
-        const c = str[i];
-        const k = key[j % key.length];
-        const cIdx = ALPHABET.indexOf(c);
-        const kIdx = ALPHABET.indexOf(k);
-        if (cIdx === -1) { result += c; continue; }
-        const shift = decrypt ? -kIdx : kIdx;
-        result += ALPHABET[(cIdx + shift + ALPHABET.length * 10) % ALPHABET.length];
-        j++;
-    }
-    return result;
-};
+function joinLobby() {
+    userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
+    let roomId = document.getElementById("target-id").value.trim();
+    
+    // ALTERAÇÃO: O ID agora combina RoomID e Nick para facilitar a identificação na rede Mesh
+    myId = roomId || generateID();
+    peer = new Peer(myId + "_" + userName.replace(/\s/g, '_'));
 
-const polybius = (str, decrypt = false) => {
-    if (!decrypt) {
-        return str.split('').map(c => {
-            const i = ALPHABET.indexOf(c);
-            if (i === -1) return "??";
-            const row = Math.floor(i / 8);
-            const col = i % 8;
-            return `${row}${col}`;
-        }).join('');
-    } else {
-        let result = "";
-        for (let i = 0; i < str.length; i += 2) {
-            const row = parseInt(str[i]);
-            const col = parseInt(str[i+1]);
-            result += ALPHABET[row * 8 + col] || "";
+    peer.on('open', (id) => {
+        document.getElementById("room-id-display").textContent = myId;
+        document.getElementById("peer-status").textContent = "ONLINE";
+        document.getElementById("peer-status").style.color = "#0f0";
+        isConnected = true;
+        mpPanel.style.display = "none";
+        updatePlayerList();
+    });
+
+    peer.on('connection', (conn) => {
+        setupConnection(conn);
+    });
+}
+
+function setupConnection(conn) {
+    // ALTERAÇÃO: Separa o Nick do PeerID para exibir na lista
+    const peerName = conn.peer.split('_')[1];
+    connections[conn.peer] = { conn, name: peerName };
+
+    conn.on('data', (data) => {
+        if (data.type === 'chat') appendMessage(data.user, data.msg);
+        
+        // ALTERAÇÃO: Sincronização de texto apenas se o popup estiver aberto para este peer
+        if (data.type === 'text_sync' && activeRemoteConn?.peer === conn.peer) {
+            remoteInputVal = data.value;
+            syncParticles(remoteParticles, remoteInputVal, remoteCanvas, remoteCtx);
         }
-        return result;
+    });
+
+    conn.on('close', () => {
+        delete connections[conn.peer];
+        updatePlayerList();
+    });
+
+    updatePlayerList();
+}
+
+// ALTERAÇÃO: Função que atualiza a lista lateral com nomes clicáveis
+function updatePlayerList() {
+    playersListDiv.innerHTML = "";
+    
+    // Eu (Sempre no topo, não clicável)
+    const me = document.createElement("div");
+    me.className = "player-item me";
+    me.textContent = userName + " (VOCÊ)";
+    playersListDiv.appendChild(me);
+
+    // Outros Players Conectados
+    Object.keys(connections).forEach(peerId => {
+        const p = document.createElement("div");
+        p.className = "player-item";
+        p.innerHTML = `<span>${connections[peerId].name}</span> <span style="font-size:8px; opacity:0.5;">CONECTADO</span>`;
+        // ALTERAÇÃO: Ao clicar no nome, abre o popup do canvas remoto
+        p.onclick = () => openRemoteCanvas(peerId);
+        playersListDiv.appendChild(p);
+    });
+}
+
+// ALTERAÇÃO: Função que inicia a visualização remota no popup
+function openRemoteCanvas(peerId) {
+    activeRemoteConn = connections[peerId].conn;
+    document.getElementById("popup-title").textContent = "CONTROLANDO: " + connections[peerId].name;
+    remotePopup.style.display = "flex";
+    
+    // ALTERAÇÃO: Gera novas partículas exclusivas para a janela de popup
+    remoteParticles = [];
+    for(let i=0; i<amount; i++) remoteParticles.push(new Particle(i, remoteCanvas));
+    
+    resizeRemote();
+}
+
+document.getElementById("close-popup").onclick = () => {
+    remotePopup.style.display = "none";
+    activeRemoteConn = null;
+};
+
+// --- CHAT GLOBAL ---
+
+document.getElementById("chat-input").onkeydown = (e) => {
+    if(e.key === "Enter") {
+        const msg = e.target.value.trim();
+        if(!isConnected) { mpPanel.style.display = "flex"; return; } // Bloqueio de chat sem sala
+        if(msg) {
+            appendMessage(userName, msg);
+            // ALTERAÇÃO: Envia mensagem para todos na rede
+            Object.values(connections).forEach(p => p.conn.send({ type: 'chat', user: userName, msg }));
+            e.target.value = "";
+        }
     }
 };
 
-const b64e = (str) => btoa(unescape(encodeURIComponent(str)));
-const b64d = (str) => decodeURIComponent(escape(atob(str)));
-
-function x10Encrypt(user, text) {
-    let data = `<$${user}>:<$${text}>`;
-    data = atbash(data);
-    data = caesar(data, 5);
-    data = vigenere(data, user);
-    data = b64e(data);
-    data = polybius(data);
-    data = caesar(data, -3);
-    data = atbash(data);
-    data = b64e(data);
-    data = caesar(data, 13);
-    data = b64e(data);
-    return data;
-}
-
-function x10Decrypt(packet, userKey) {
-    let data = packet;
-    try {
-        data = b64d(data);
-        data = caesar(data, -13);
-        data = b64d(data);
-        data = atbash(data);
-        data = caesar(data, 3);
-        data = polybius(data, true);
-        data = b64d(data);
-        data = vigenere(data, userKey, true);
-        data = caesar(data, -5);
-        data = atbash(data);
-        const match = data.match(/<\$(.*?)>:<\$(.*?)>/);
-        if (match) return { user: match[1], msg: match[2] };
-    } catch(e) {}
-    return { user: "PROTOCOL_Z", msg: "[DECRYPT_ERROR]" };
-}
-
-// --- APP LOGIC ---
-
-function appendMessage(displayUser, displayMsg) {
+function appendMessage(u, m) {
     const div = document.createElement("div");
-    div.className = "msg-line";
-    div.innerHTML = `<span class="msg-user">${displayUser}</span>: ${displayMsg}`;
-    chatMessages.appendChild(div);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    div.style.marginBottom = "5px";
+    div.innerHTML = `<strong>${u}:</strong> ${m}`;
+    const box = document.getElementById("chat-messages");
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
 }
 
-chatInput.onkeydown = (e) => {
-    if (e.key === "Enter") {
-        if (!isConnected) {
-            mpPanel.style.display = "flex";
-            chatInput.value = "";
-            return;
-        }
-
-        const rawMsg = chatInput.value.trim();
-        if (rawMsg) {
-            appendMessage(userName, rawMsg);
-            if (conn) {
-                const packet = x10Encrypt(userName, rawMsg);
-                conn.send({ type: 'chat_packet', data: packet, sender: userName });
-            }
-            chatInput.value = "";
-        }
-    }
+document.getElementById("chat-toggle").onclick = () => {
+    const win = document.getElementById("chat-window");
+    win.style.display = win.style.display === "flex" ? "none" : "flex";
 };
 
-chatToggle.onclick = () => {
-    chatWindow.style.display = chatWindow.style.display === "flex" ? "none" : "flex";
-    if (chatWindow.style.display === "flex") chatInput.focus();
-};
+// --- ENGINE DE PARTÍCULAS ---
 
-function handleMPAction() {
-    userName = nickInput.value.trim() || "User" + Math.floor(Math.random()*999);
-    const code = targetInput.value.trim();
-    if (code) initPeer(() => connectToPeer(code));
-    else initPeer();
-    mpPanel.style.display = "none";
-}
-
-function initPeer(callback) {
-    if (peer) return;
-    // Tenta usar o ID do código da sala se for fornecido (para bater com o código)
-    const code = targetInput.value.trim();
-    const shortId = code || generateShortID();
-    
-    peer = new Peer(shortId);
-    peer.on('open', (id) => { 
-        document.getElementById("my-id").textContent = id; 
-        if (!code) copyToClipboard(id); 
-        isConnected = true;
-        if (callback) callback(); 
-        else {
-            document.getElementById("peer-status").textContent = "WAITING...";
-            document.getElementById("peer-status").style.color = "cyan";
-        }
-    });
-    
-    peer.on('connection', (connection) => { 
-        conn = connection; 
-        setupConn(); 
-        document.getElementById("peer-status").textContent = "HOSTED"; 
-        document.getElementById("peer-status").style.color = "#0f0";
-    });
-}
-
-function connectToPeer(targetId) {
-    if (!peer) return;
-    conn = peer.connect(targetId);
-    setupConn();
-    conn.on('open', () => { 
-        document.getElementById("peer-status").textContent = "CONNECTED"; 
-        document.getElementById("peer-status").style.color = "#0f0";
-        isConnected = true;
-    });
-}
-
-function setupConn() {
-    conn.on('data', (payload) => {
-        if (payload.type === 'sync') remoteMouse = payload.mouse;
-        if (payload.type === 'chat_packet') {
-            const decrypted = x10Decrypt(payload.data, payload.sender);
-            appendMessage(decrypted.user, decrypted.msg);
-        }
-        if (payload.type === 'text') { inputTxt.value = payload.value; scanText(); }
-    });
-}
-
-function generateShortID() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    let r = ''; for (let i = 0; i < 5; i++) r += chars.charAt(Math.floor(Math.random() * chars.length));
-    return r;
-}
-
-function copyToClipboard(text) {
-    const textArea = document.createElement("textarea");
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.select();
-    document.execCommand('copy');
-    const notice = document.getElementById("copy-notice");
-    notice.style.display = "block";
-    setTimeout(() => notice.style.display = "none", 2000);
-    document.body.removeChild(textArea);
-}
-
-// --- ENGINE ---
 class Particle {
-    constructor(i) {
-        this.index = i;
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
+    constructor(i, targetCanvas) {
+        this.x = Math.random() * targetCanvas.width;
+        this.y = Math.random() * targetCanvas.height;
         this.dest = { x: this.x, y: this.y };
         this.vx = 0; this.vy = 0;
         this.r = Math.random() * 1.5 + 0.5;
-        this.baseHue = Math.random() * 360;
+        this.hue = Math.random() * 360;
     }
-    update() {
-        const accX = (this.dest.x - this.x) / 25;
-        const accY = (this.dest.y - this.y) / 25;
-        this.vx = (this.vx + accX) * 0.75;
-        this.vy = (this.vy + accY) * 0.75;
+    update(c, targetCtx) {
+        const accX = (this.dest.x - this.x) / 20;
+        const accY = (this.dest.y - this.y) / 20;
+        this.vx = (this.vx + accX) * 0.8;
+        this.vy = (this.vy + accY) * 0.8;
         this.x += this.vx; this.y += this.vy;
-        ctx.fillStyle = `hsl(${this.baseHue}, 70%, 60%)`;
-        ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2); ctx.fill();
+
+        targetCtx.fillStyle = `hsl(${this.hue}, 80%, 60%)`;
+        targetCtx.beginPath();
+        targetCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        targetCtx.fill();
     }
 }
 
-function scanText() {
-    const val = inputTxt.value.trim();
-    tCanvas.width = canvas.width; tCanvas.height = canvas.height;
-    tCtx.clearRect(0, 0, tCanvas.width, tCanvas.height);
-    tCtx.fillStyle = "white"; tCtx.textAlign = "center"; tCtx.textBaseline = "middle";
-    tCtx.font = `bold ${Math.min(canvas.width / (val.length * 0.6 + 1), 150)}px sans-serif`;
-    tCtx.fillText(val, canvas.width / 2, canvas.height / 2);
-    const data = tCtx.getImageData(0, 0, tCanvas.width, tCanvas.height).data;
-    let points = [];
-    for (let y = 0; y < tCanvas.height; y += 4) {
-        for (let x = 0; x < tCanvas.width; x += 4) {
-            if (data[(y * tCanvas.width + x) * 4 + 3] > 128) points.push({ x, y });
+// Função de sincronização de partículas (Texto -> Pontos)
+function syncParticles(pArray, text, tCanvas, tCtx) {
+    if(!text) return;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
+    const offCtx = offCanvas.getContext("2d");
+    
+    offCtx.fillStyle = "white";
+    offCtx.textAlign = "center";
+    offCtx.textBaseline = "middle";
+    offCtx.font = `bold ${Math.min(tCanvas.width/(text.length*0.6 + 1), 120)}px sans-serif`;
+    offCtx.fillText(text, tCanvas.width/2, tCanvas.height/2);
+    
+    const data = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
+    const points = [];
+    for(let y=0; y<tCanvas.height; y+=4) {
+        for(let x=0; x<tCanvas.width; x+=4) {
+            if(data[(y*tCanvas.width + x)*4 + 3] > 128) points.push({x, y});
         }
     }
-    if (points.length > 0) particles.forEach((p, i) => { p.dest = points[i % points.length]; });
+    if(points.length > 0) {
+        pArray.forEach((p, i) => {
+            p.dest = points[i % points.length];
+        });
+    }
 }
 
-inputTxt.addEventListener("input", () => {
-    scanText();
-    if (conn) conn.send({ type: 'text', value: inputTxt.value });
-});
+inputTxt.oninput = () => {
+    // ALTERAÇÃO: Sincroniza apenas o canvas local (Ninguém assume seu controle)
+    syncParticles(localParticles, inputTxt.value, canvas, ctx);
+    // ALTERAÇÃO: Envia o texto para os outros (mas eles só verão se abrirem seu popup)
+    Object.values(connections).forEach(p => p.conn.send({ type: 'text_sync', value: inputTxt.value }));
+};
 
-let remoteMouse = { x: 0, y: 0 }, mouseX = 0, mouseY = 0;
-document.addEventListener("mousemove", e => { mouseX = e.clientX; mouseY = e.clientY; });
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+function resizeRemote() {
+    const container = document.getElementById("remote-canvas-container");
+    remoteCanvas.width = container.clientWidth;
+    remoteCanvas.height = container.clientHeight;
+}
 
 function loop() {
-    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    // Render do Canvas Local
     ctx.fillStyle = "rgba(10, 10, 10, 0.2)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    particles.forEach(p => p.update());
-    if (conn && frames % 2 === 0) conn.send({ type: 'sync', mouse: { x: mouseX, y: mouseY } });
-    frames++;
-    const now = performance.now();
-    if (now > lastTime + 1000) {
-        document.getElementById("fps-val").textContent = frames;
-        frames = 0; lastTime = now;
-        if (window.performance?.memory) document.getElementById("ram-val").textContent = Math.round(performance.memory.usedJSHeapSize / 1048576) + "MB";
+    localParticles.forEach(p => p.update(canvas, ctx));
+
+    // ALTERAÇÃO: Render do Canvas Remoto (apenas se o popup estiver ativo)
+    if(remotePopup.style.display === "flex") {
+        remoteCtx.fillStyle = "rgba(5, 5, 5, 0.2)";
+        remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
+        remoteParticles.forEach(p => p.update(remoteCanvas, remoteCtx));
     }
+
     requestAnimationFrame(loop);
 }
 
-let frames = 0, lastTime = performance.now();
-for (let i = 0; i < amount; i++) particles.push(new Particle(i));
+// Init
+window.addEventListener('resize', resize);
+resize();
+for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
 loop();
+
+// ALTERAÇÃO: Bloqueia o input de texto e abre o painel se o usuário não estiver logado
+inputTxt.onkeydown = (e) => {
+    if(!isConnected) {
+        mpPanel.style.display = "flex";
+        e.preventDefault();
+    }
+};
+
+window.onload = () => { mpPanel.style.display = "flex"; };
 </script>
 </body>
 </html>
