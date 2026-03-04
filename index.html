@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bolinhas Stats Lobby - Media Engine 😼🌐</title>
+    <title>Bolinhas Stats Lobby - Photo Engine 😼🌐</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
@@ -41,8 +41,8 @@
         }
         .media-btn {
             background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
-            padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 10px;
-            transition: 0.2s; flex: 1; text-align: center;
+            padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 11px;
+            transition: 0.2s; flex: 1; text-align: center; font-weight: bold;
         }
         .media-btn:hover { background: #0f0; color: #000; }
         input[type="file"] { display: none; }
@@ -102,15 +102,12 @@
 </div>
 
 <div id="ui">
-    <textarea id="txt" placeholder="Texto ou emojis..." maxlength="150"></textarea>
+    <textarea id="txt" placeholder="Digite algo aqui..." maxlength="150"></textarea>
     <div class="media-controls">
-        <label class="media-btn" for="img-upload">🖼️ CARREGAR IMAGEM</label>
+        <label class="media-btn" for="img-upload">🖼️ CARREGAR FOTO</label>
         <input type="file" id="img-upload" accept="image/*">
         
-        <label class="media-btn" for="vid-upload">🎬 CARREGAR VÍDEO</label>
-        <input type="file" id="vid-upload" accept="video/*">
-        
-        <button class="media-btn" onclick="clearMedia()">❌ LIMPAR TUDO</button>
+        <button class="media-btn" onclick="clearMedia()">❌ LIMPAR FOTO</button>
     </div>
     <div class="hint-text" id="status-hint">Modo Econômico Ativo 🌀</div>
 </div>
@@ -204,9 +201,8 @@ let isIdle = true;
 let frenzyTimer = 0; 
 let explosionSequenceActive = false;
 
-// Media Engine Vars
+// Photo Engine Vars
 let currentImg = null;
-let currentVid = null;
 const offCanvas = document.createElement("canvas");
 const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
 
@@ -321,7 +317,7 @@ class Particle {
         this.dest = { x: this.x, y: this.y };
         this.vx = (Math.random() - 0.5) * 2;
         this.vy = (Math.random() - 0.5) * 2;
-        this.r = Math.random() * 1.5 + 0.8;
+        this.r = Math.random() * 1.2 + 0.8;
         this.color = `rgba(0, 255, 0, 1)`; 
         this.originalColor = this.color;
         this.targetColor = this.color;
@@ -365,7 +361,7 @@ class Particle {
                 this.vy += (this.dest.y - this.y) / 80;
             }
         } else {
-            const easing = isIdleMode ? 30 : 12;
+            const easing = isIdleMode ? 30 : 10;
             this.vx = (this.vx + (this.dest.x - this.x) / easing) * 0.7;
             this.vy = (this.vy + (this.dest.y - this.y) / easing) * 0.7;
             this.x += this.vx; this.y += this.vy;
@@ -381,7 +377,7 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
 
     if (targetType === 'local' && /BOOM|KABOOM/i.test(text.trim())) triggerExplosionSequence();
 
-    const noMedia = !currentImg && !currentVid;
+    const noMedia = !currentImg;
     if ((!text || text.trim() === "") && noMedia) {
         if (targetType === 'local') {
             isIdle = true; statusHint.textContent = "Modo Econômico Ativo 🌀";
@@ -400,23 +396,18 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
 
     if (targetType === 'local') {
         isIdle = false; 
-        statusHint.textContent = currentVid ? "Renderizando Vídeo 🎬" : (currentImg ? "Exibindo Imagem 🖼️" : "Processando Texto ✍️");
+        statusHint.textContent = currentImg ? "Exibindo Imagem 🖼️" : "Processando Texto ✍️";
         if (!explosionSequenceActive && frenzyTimer <= 0) isExplodingLocal = false;
     }
 
     offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
     offCtx.clearRect(0,0, offCanvas.width, offCanvas.height);
 
-    // Lógica de Prioridade: Vídeo > Imagem > Texto
-    if (currentVid) {
-        const aspect = currentVid.videoWidth / currentVid.videoHeight;
-        let vw = offCanvas.width * 0.8, vh = vw / aspect;
-        if (vh > offCanvas.height * 0.8) { vh = offCanvas.height * 0.8; vw = vh * aspect; }
-        offCtx.drawImage(currentVid, (offCanvas.width - vw)/2, (offCanvas.height - vh)/2, vw, vh);
-    } else if (currentImg) {
+    // Lógica de Prioridade: Imagem > Texto
+    if (currentImg) {
         const aspect = currentImg.width / currentImg.height;
-        let iw = offCanvas.width * 0.8, ih = iw / aspect;
-        if (ih > offCanvas.height * 0.8) { ih = offCanvas.height * 0.8; iw = ih * aspect; }
+        let iw = offCanvas.width * 0.9, ih = iw / aspect;
+        if (ih > offCanvas.height * 0.9) { ih = offCanvas.height * 0.9; iw = ih * aspect; }
         offCtx.drawImage(currentImg, (offCanvas.width - iw)/2, (offCanvas.height - ih)/2, iw, ih);
     } else {
         const lines = text.split(/\n/);
@@ -430,7 +421,9 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
 
     const imgData = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
     const pts = [];
-    const step = currentVid || currentImg ? 3 : 4; 
+    
+    // Step ajustado para equilíbrio entre performance e detalhe
+    const step = currentImg ? 2 : 3; 
     for(let y=0; y<tCanvas.height; y+=step) {
         for(let x=0; x<tCanvas.width; x+=step) {
             const idx = (y * tCanvas.width + x) * 4;
@@ -449,7 +442,7 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
     }
 }
 
-// --- CONTROLES DE MÍDIA ---
+// --- CONTROLES DE IMAGEM ---
 document.getElementById('img-upload').onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -457,7 +450,7 @@ document.getElementById('img-upload').onchange = (e) => {
     reader.onload = (event) => {
         const img = new Image();
         img.onload = () => { 
-            currentImg = img; currentVid = null; 
+            currentImg = img; 
             handleSync(localParticles, inputTxt.value, canvas, ctx, 'local'); 
         };
         img.src = event.target.result;
@@ -465,23 +458,9 @@ document.getElementById('img-upload').onchange = (e) => {
     reader.readAsDataURL(file);
 };
 
-document.getElementById('vid-upload').onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const vid = document.createElement('video');
-    vid.src = url;
-    vid.muted = true; vid.loop = true;
-    vid.onloadeddata = () => { 
-        currentVid = vid; currentImg = null; vid.play(); 
-    };
-};
-
 function clearMedia() {
     currentImg = null;
-    if (currentVid) { currentVid.pause(); currentVid = null; }
     document.getElementById('img-upload').value = "";
-    document.getElementById('vid-upload').value = "";
     handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
 }
 
@@ -521,9 +500,6 @@ function loop() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (frenzyTimer > 0) frenzyTimer--;
     
-    // Se houver vídeo, forçar atualização das partículas a cada frame
-    if (currentVid && !currentVid.paused) handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
-
     localParticles.forEach(p => p.update(ctx, isExplodingLocal, isIdle));
 
     if(remotePopup.style.display === "flex" && remoteCanvas.width > 0) {
@@ -538,7 +514,6 @@ window.addEventListener('resize', () => { resize(); resizeRemote(); });
 for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
 resize(); loop();
 window.onload = () => { mpPanel.style.display = "flex"; resize(); };
-    // eu espero que funcione tranquilo em dispositivos mais fracos :/
 </script>
 </body>
 </html>
