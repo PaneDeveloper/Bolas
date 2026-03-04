@@ -91,7 +91,7 @@
 </div>
 
 <div id="ui">
-    <textarea id="txt" placeholder="Digite algo... ou apague tudo para explodir!" maxlength="150"></textarea>
+    <textarea id="txt" placeholder="Digite algo colorido! (ex: emojis 🚀🔥)" maxlength="150"></textarea>
     <div class="hint-text">Shift+Enter para parágrafo</div>
 </div>
 
@@ -141,7 +141,7 @@ let isConnected = false;
 let activeRemoteConn = null;
 
 let localParticles = [];
-const amount = 10000; // novamente, APENAS PARA FINS DE TESTE EM MEUS DISPOSITIVOS KKKKKKKKKKKKKKKK
+const amount = 5000; // Ajustado para performance x densidade
 let remoteParticles = [];
 let remoteInputVal = "";
 
@@ -271,32 +271,23 @@ class Particle {
         this.vx = (Math.random() - 0.5) * 20;
         this.vy = (Math.random() - 0.5) * 20;
         this.r = Math.random() * 1.5 + 0.8;
-        this.hue = Math.random() * 360;
-        this.friction = 0.95;
+        this.color = `rgba(0, 255, 0, 1)`; // Cor inicial padrão
     }
 
     explode() {
-        // Dá um impulso aleatório forte
         this.vx = (Math.random() - 0.5) * 40;
         this.vy = (Math.random() - 0.5) * 40;
     }
 
     update(targetCtx, isExploding) {
         if (isExploding) {
-            // Movimento caótico de explosão com rebatimento nas bordas
             this.x += this.vx;
             this.y += this.vy;
-            
             if (this.x < 0 || this.x > this.canvasRef.width) this.vx *= -1;
             if (this.y < 0 || this.y > this.canvasRef.height) this.vy *= -1;
-            
-            // Adiciona uma leve variação contínua para não ficarem paradas
-            this.vx += (Math.random() - 0.5) * 0.5;
-            this.vy += (Math.random() - 0.5) * 0.5;
             this.vx *= 0.99;
             this.vy *= 0.99;
         } else {
-            // Atração para o destino do texto
             const accX = (this.dest.x - this.x) / 15;
             const accY = (this.dest.y - this.y) / 15;
             this.vx = (this.vx + accX) * 0.7;
@@ -305,7 +296,7 @@ class Particle {
             this.y += this.vy;
         }
 
-        targetCtx.fillStyle = `hsl(${this.hue}, 80%, 60%)`;
+        targetCtx.fillStyle = this.color;
         targetCtx.beginPath();
         targetCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
         targetCtx.fill();
@@ -314,15 +305,12 @@ class Particle {
 
 function handleSync(pArray, text, tCanvas, tCtx, targetType) {
     if (!text || text.trim() === "") {
-        // Se o texto foi apagado, ativa a explosão
         if (targetType === 'local') isExplodingLocal = true;
         else isExplodingRemote = true;
-        
         pArray.forEach(p => p.explode());
         return;
     }
 
-    // Se houver texto, desativa a explosão e organiza
     if (targetType === 'local') isExplodingLocal = false;
     else isExplodingRemote = false;
 
@@ -332,7 +320,10 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
     const offCtx = offCanvas.getContext("2d");
     
     const lines = text.split(/\n|\\n/);
-    offCtx.fillStyle = "white";
+    
+    // USAMOS VERDE NEON COMO COR PADRÃO PARA TEXTO, 
+    // MAS O CANVAS PODE PEGAR CORES DE EMOJIS!
+    offCtx.fillStyle = "#00ff00"; 
     offCtx.textAlign = "center";
     offCtx.textBaseline = "middle";
     
@@ -352,17 +343,30 @@ function handleSync(pArray, text, tCanvas, tCtx, targetType) {
         offCtx.fillText(line.trim(), tCanvas.width / 2, startY + (i * lineHeight));
     });
 
-    const data = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
+    const imageData = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height);
+    const data = imageData.data;
     const points = [];
+
+    // Coletamos pontos e suas respectivas cores
     for(let y=0; y<tCanvas.height; y+=3) {
         for(let x=0; x<tCanvas.width; x+=3) {
-            if(data[(y*tCanvas.width + x)*4 + 3] > 128) points.push({x, y});
+            const index = (y * tCanvas.width + x) * 4;
+            const alpha = data[index + 3];
+            if(alpha > 128) {
+                points.push({
+                    x, 
+                    y, 
+                    color: `rgba(${data[index]}, ${data[index+1]}, ${data[index+2]}, ${alpha/255})`
+                });
+            }
         }
     }
     
     if(points.length > 0) {
         pArray.forEach((p, i) => {
-            p.dest = points[i % points.length];
+            const targetPoint = points[i % points.length];
+            p.dest = { x: targetPoint.x, y: targetPoint.y };
+            p.color = targetPoint.color; // ATUALIZA A COR DA BOLINHA
         });
     }
 }
@@ -413,7 +417,6 @@ window.addEventListener('resize', () => {
 resize();
 for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
 
-// Começa explodindo já que não tem texto inicial
 isExplodingLocal = true;
 localParticles.forEach(p => p.explode());
 
