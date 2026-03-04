@@ -91,7 +91,7 @@
 </div>
 
 <div id="ui">
-    <textarea id="txt" placeholder="Digite algo colorido! (ex: emojis 🚀🔥)" maxlength="150"></textarea>
+    <textarea id="txt" placeholder="Digite algo colorido! (ex: emojis 🚀🔥)" maxlength="150">Feito por Pane Developer❤️</textarea>
     <div class="hint-text">Shift+Enter para parágrafo</div>
 </div>
 
@@ -141,7 +141,7 @@ let isConnected = false;
 let activeRemoteConn = null;
 
 let localParticles = [];
-const amount = 5000; // Ajustado para performance x densidade
+const amount = 8000; // Ajustado para performance x densidade
 let remoteParticles = [];
 let remoteInputVal = "";
 
@@ -417,8 +417,8 @@ window.addEventListener('resize', () => {
 resize();
 for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
 
-isExplodingLocal = true;
-localParticles.forEach(p => p.explode());
+// Inicializa com o texto padrão
+handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
 
 loop();
 
