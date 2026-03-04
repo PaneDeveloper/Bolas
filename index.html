@@ -11,7 +11,7 @@
         #ui { 
             position:fixed; top:20px; left:50%; transform:translateX(-50%); 
             z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
-            width: 90%; max-width: 500px;
+            width: 90%; max-width: 600px;
         }
         #stats { 
             position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
@@ -19,8 +19,6 @@
             border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
             z-index:100; line-height:1.4; pointer-events:auto; min-width: 200px;
         }
-        
-        /* Layout do cabeçalho de stats com botões */
         #stats-header {
             display: flex;
             flex-direction: column;
@@ -29,31 +27,14 @@
             border-bottom: 1px solid rgba(0, 255, 0, 0.3);
             padding-bottom: 8px;
         }
-
-        .controls-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 5px;
-        }
-
+        .controls-row { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
         .audio-btn {
-            background: rgba(0, 255, 0, 0.1);
-            border: 1px solid #0f0;
-            color: #0f0;
-            cursor: pointer;
-            font-size: 8px;
-            padding: 3px 6px;
-            border-radius: 3px;
-            text-transform: uppercase;
-            font-weight: bold;
-            transition: 0.2s;
-            flex: 1;
-            text-align: center;
+            background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
+            cursor: pointer; font-size: 8px; padding: 3px 6px; border-radius: 3px;
+            text-transform: uppercase; font-weight: bold; transition: 0.2s; flex: 1; text-align: center;
         }
         .audio-btn:hover { background: #0f0; color: #000; }
         .audio-btn.muted { border-color: #555; color: #555; background: none; }
-
         #player-list-container {
             margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
             max-height: 200px; overflow-y: auto; scrollbar-width: thin;
@@ -64,16 +45,12 @@
         }
         .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
         .player-item.me { color: #fff; font-weight: bold; cursor: default; }
-
         textarea#txt { 
             padding:12px 20px; font-size:16px; border-radius:15px; border:2px solid #333; 
             width:100%; height: 60px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
             transition: border-color 0.3s; resize: none; font-family: sans-serif;
         }
-
-        .media-controls {
-            display: flex; gap: 10px; width: 100%; justify-content: center;
-        }
+        .media-controls { display: flex; gap: 10px; width: 100%; justify-content: center; }
         .media-btn {
             background: rgba(0, 255, 0, 0.1); border: 1px solid #0f0; color: #0f0;
             padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 11px;
@@ -81,7 +58,6 @@
         }
         .media-btn:hover { background: #0f0; color: #000; }
         input[type="file"] { display: none; }
-
         #multiplayer-panel {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             display: none; flex-direction: column; gap: 15px; align-items: center;
@@ -96,17 +72,6 @@
             cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
             border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
         }
-
-        #remote-popup {
-            position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
-            background: #000; border: 2px solid #0f0; border-radius: 10px;
-            z-index: 2000; display: none; flex-direction: column;
-            box-shadow: 0 0 100px #000;
-        }
-        #popup-header { background: #0f0; color: #000; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
-        #close-popup { cursor: pointer; background: #000; color: #fff; border: none; padding: 0 10px; }
-        #remote-canvas-container { flex: 1; position: relative; overflow: hidden; background: #050505; }
-        
         #chat-toggle {
             position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
             background: #0f0; border-radius: 50%; display: flex; align-items: center;
@@ -120,14 +85,13 @@
         #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
         #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
         #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
-        
         .hint-text { font-size: 11px; color: #0f0; margin-top: 5px; font-weight: bold; text-shadow: 0 0 5px #000;}
     </style>
 </head>
 <body>
 
-<!-- Elemento da Música de Fundo -->
-<audio id="bgm-player" src="panedeveloper.github.io/BGM.mp3" loop></audio>
+<!-- Áudio BGM -->
+<audio id="bgm-player" src="BGM.mp3" loop preload="auto"></audio>
 
 <div id="stats">
     <div id="stats-header">
@@ -140,98 +104,68 @@
     <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
     <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
     <div id="player-list-container">
-        <div style="font-size: 9px; color: #666; margin-bottom: 5px;">PLAYERS ONLINE:</div>
         <div id="players-list"></div>
     </div>
 </div>
 
 <div id="ui">
-    <textarea id="txt" placeholder="Digite algo aqui..." maxlength="150"></textarea>
+    <textarea id="txt" placeholder="Digita algo aqui..." maxlength="150"></textarea>
     <div class="media-controls">
         <label class="media-btn" for="img-upload">🖼️ CARREGAR FOTO</label>
         <input type="file" id="img-upload" accept="image/*">
-        
         <button class="media-btn" onclick="clearMedia()">❌ LIMPAR FOTO</button>
     </div>
-    <div class="hint-text" id="status-hint">Modo Econômico Ativo 🌀</div>
+    <div class="hint-text" id="status-hint">Modo Económico... 🌀</div>
 </div>
 
 <div id="multiplayer-panel">
-    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">CONFIGURAÇÃO DE ACESSO</div>
-    <input type="text" id="user-nick" class="mp-input" placeholder="Seu Nick">
-    <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala (Opcional)">
-    <button class="btn" onclick="joinLobby()">ENTRAR NO LOBBY</button>
+    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">ACESSO AO PROTOCOLO</div>
+    <input type="text" id="user-nick" class="mp-input" placeholder="Teu Nick">
+    <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala">
+    <button class="btn" onclick="joinLobby()">CONECTAR</button>
 </div>
 
 <button id="chat-toggle">💬</button>
 <div id="chat-window">
-    <div style="background:#0f0; color:#000; padding:5px; font-size:10px; text-align:center; font-weight:bold;">GLOBAL CHAT</div>
+    <div style="background:#0f0; color:#000; padding:5px; font-size:10px; text-align:center; font-weight:bold;">CHAT GLOBAL</div>
     <div id="chat-messages"></div>
     <div id="chat-input-area">
         <input type="text" id="chat-input" placeholder="Mensagem..." autocomplete="off">
     </div>
 </div>
 
-<div id="remote-popup">
-    <div id="popup-header">
-        <span id="popup-title">Tela de: USER</span>
-        <button id="close-popup">X</button>
-    </div>
-    <div id="remote-canvas-container">
-        <canvas id="remote-canvas"></canvas>
-    </div>
-</div>
-
 <canvas id="canvas"></canvas>
 
 <script>
-// --- AUDIO ENGINE ---
+// --- MOTOR DE ÁUDIO ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const bgmPlayer = document.getElementById("bgm-player");
 const bgmToggleBtn = document.getElementById("bgm-toggle");
 const sfxToggleBtn = document.getElementById("sfx-toggle");
 
-// Recupera preferências de áudio do localStorage
 let bgmMuted = localStorage.getItem("user_bgm_muted") === "true";
 let sfxMuted = localStorage.getItem("user_sfx_muted") === "true";
 
 function applyAudioStates() {
-    // Aplica Música (BGM)
     bgmPlayer.muted = bgmMuted;
     if (bgmMuted) {
         bgmToggleBtn.textContent = "MÚSICA: OFF";
         bgmToggleBtn.classList.add("muted");
+        bgmPlayer.pause();
     } else {
         bgmToggleBtn.textContent = "MÚSICA: ON";
         bgmToggleBtn.classList.remove("muted");
-        if (audioCtx.state === 'running') bgmPlayer.play().catch(() => {});
+        if (isConnected) bgmPlayer.play().catch(() => {});
     }
-
-    // Aplica Sons de Efeito (SFX)
-    if (sfxMuted) {
-        sfxToggleBtn.textContent = "SOM: OFF";
-        sfxToggleBtn.classList.add("muted");
-    } else {
-        sfxToggleBtn.textContent = "SOM: ON";
-        sfxToggleBtn.classList.remove("muted");
-    }
+    sfxToggleBtn.textContent = sfxMuted ? "SOM: OFF" : "SOM: ON";
+    sfxMuted ? sfxToggleBtn.classList.add("muted") : sfxToggleBtn.classList.remove("muted");
 }
 
-function toggleBGM() {
-    bgmMuted = !bgmMuted;
-    localStorage.setItem("user_bgm_muted", bgmMuted);
-    applyAudioStates();
-}
+function toggleBGM() { bgmMuted = !bgmMuted; localStorage.setItem("user_bgm_muted", bgmMuted); applyAudioStates(); }
+function toggleSFX() { sfxMuted = !sfxMuted; localStorage.setItem("user_sfx_muted", sfxMuted); applyAudioStates(); }
 
-function toggleSFX() {
-    sfxMuted = !sfxMuted;
-    localStorage.setItem("user_sfx_muted", sfxMuted);
-    applyAudioStates();
-}
-
-// Funções de SFX - Respeitam a flag sfxMuted
 function playBeep(freq, vol, duration) {
-    if (sfxMuted) return; // Se o botão de SOM estiver em OFF, não toca nada
+    if (sfxMuted) return;
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.type = 'square';
@@ -244,73 +178,37 @@ function playBeep(freq, vol, duration) {
     osc.stop(audioCtx.currentTime + duration);
 }
 
-function playExplosion() {
-    if (sfxMuted) return; // Se o botão de SOM estiver em OFF, não toca nada
-    const bufferSize = audioCtx.sampleRate * 2;
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
-    const filter = audioCtx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
-    filter.frequency.exponentialRampToValueAtTime(10, audioCtx.currentTime + 1.5);
-    const gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(1, audioCtx.currentTime);
-    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.5);
-    noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(audioCtx.destination);
-    noise.start();
-}
-
-// --- CONFIG E ESTADO ---
+// --- CORE DO SISTEMA ---
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const inputTxt = document.getElementById("txt");
 const mpPanel = document.getElementById("multiplayer-panel");
 const playersListDiv = document.getElementById("players-list");
-const remotePopup = document.getElementById("remote-popup");
-const remoteCanvas = document.getElementById("remote-canvas");
-const remoteCtx = remoteCanvas.getContext("2d");
 const statusHint = document.getElementById("status-hint");
 
 let peer, connections = {};
-let myId = "", userName = "", isConnected = false, activeRemoteConn = null;
-
+let myId = "", userName = "", isConnected = false;
 let localParticles = [];
-const amount = 15000; 
-let remoteParticles = [];
-let remoteInputVal = "";
-
+const amount = 25000; 
 let isExplodingLocal = false;
 let isIdle = true; 
 let frenzyTimer = 0; 
-let explosionSequenceActive = false;
-
-// Photo Engine Vars
 let currentImg = null;
+
 const offCanvas = document.createElement("canvas");
 const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
 
-// --- P2P ---
 function generateID() { return Math.random().toString(36).substr(2, 5).toUpperCase(); }
 
-function joinLobby() {
-    // Ativa contexto de áudio na primeira interação
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    
-    // Inicia áudios baseados nas preferências
-    applyAudioStates();
-    if (!bgmMuted) bgmPlayer.play().catch(() => {});
+async function joinLobby() {
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+    if (!bgmMuted) { bgmPlayer.volume = 0.4; bgmPlayer.play().catch(() => {}); }
 
     userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
     let roomId = document.getElementById("target-id").value.trim().toUpperCase();
     myId = roomId || generateID();
-    const fullPeerId = "BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_');
     
-    peer = new Peer(fullPeerId);
+    peer = new Peer("BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_'));
     peer.on('open', () => {
         document.getElementById("room-id-display").textContent = myId;
         document.getElementById("peer-status").textContent = "ONLINE";
@@ -318,75 +216,31 @@ function joinLobby() {
         isConnected = true;
         mpPanel.style.display = "none";
         updatePlayerList();
+        playBeep(440, 0.1, 0.2);
     });
     peer.on('connection', setupConnection);
 }
 
 function setupConnection(conn) {
-    const peerParts = conn.peer.split('_');
-    const peerName = peerParts[peerParts.length - 1];
+    const peerName = conn.peer.split('_').pop();
     connections[conn.peer] = { conn, name: peerName };
-    conn.on('open', () => {
-        updatePlayerList();
-        conn.send({ type: 'handshake', name: userName });
-    });
+    conn.on('open', () => { updatePlayerList(); conn.send({ type: 'handshake', name: userName }); });
     conn.on('data', (data) => {
-        if (data.type === 'chat') appendMessage(data.user, data.msg);
-        if (data.type === 'handshake') {
-            connections[conn.peer].name = data.name;
-            updatePlayerList();
-        }
-        if (data.type === 'text_sync' && activeRemoteConn?.peer === conn.peer) {
-            remoteInputVal = data.value;
-            handleSync(remoteParticles, remoteInputVal, remoteCanvas, remoteCtx, 'remote');
-        }
+        if (data.type === 'chat') { appendMessage(data.user, data.msg); playBeep(880, 0.05, 0.05); }
+        if (data.type === 'handshake') { connections[conn.peer].name = data.name; updatePlayerList(); }
     });
-    conn.on('close', () => {
-        delete connections[conn.peer];
-        updatePlayerList();
-    });
+    conn.on('close', () => { delete connections[conn.peer]; updatePlayerList(); });
 }
 
 function updatePlayerList() {
-    playersListDiv.innerHTML = "";
-    const me = document.createElement("div");
-    me.className = "player-item me";
-    me.textContent = userName + " (VOCÊ)";
-    playersListDiv.appendChild(me);
-    Object.keys(connections).forEach(peerId => {
-        const p = document.createElement("div");
-        p.className = "player-item";
-        p.innerHTML = `<span>${connections[peerId].name}</span>`;
-        p.onclick = () => openRemoteCanvas(peerId);
-        playersListDiv.appendChild(p);
+    playersListDiv.innerHTML = `<div class="player-item me">${userName} (VOCÊ)</div>`;
+    Object.keys(connections).forEach(id => {
+        const div = document.createElement("div");
+        div.className = "player-item";
+        div.textContent = connections[id].name;
+        playersListDiv.appendChild(div);
     });
 }
-
-function openRemoteCanvas(peerId) {
-    activeRemoteConn = connections[peerId].conn;
-    document.getElementById("popup-title").textContent = "VISUALIZANDO: " + connections[peerId].name;
-    remotePopup.style.display = "flex";
-    remoteParticles = [];
-    for(let i=0; i<amount; i++) remoteParticles.push(new Particle(i, remoteCanvas));
-    resizeRemote();
-}
-
-document.getElementById("close-popup").onclick = () => {
-    remotePopup.style.display = "none";
-    activeRemoteConn = null;
-};
-
-// --- CHAT ---
-document.getElementById("chat-input").onkeydown = (e) => {
-    if(e.key === "Enter") {
-        const msg = e.target.value.trim();
-        if(msg) {
-            appendMessage(userName, msg);
-            Object.values(connections).forEach(p => p.conn.send({ type: 'chat', user: userName, msg }));
-            e.target.value = "";
-        }
-    }
-};
 
 function appendMessage(u, m) {
     const div = document.createElement("div");
@@ -403,212 +257,156 @@ document.getElementById("chat-toggle").onclick = () => {
 
 // --- MOTOR DE PARTÍCULAS ---
 class Particle {
-    constructor(i, targetCanvas) {
+    constructor(i) {
         this.index = i;
-        this.canvasRef = targetCanvas;
-        this.x = Math.random() * targetCanvas.width;
-        this.y = Math.random() * targetCanvas.height;
+        this.reset();
+    }
+    reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
         this.dest = { x: this.x, y: this.y };
-        this.vx = (Math.random() - 0.5) * 2;
-        this.vy = (Math.random() - 0.5) * 2;
+        this.vx = 0; this.vy = 0;
         this.r = Math.random() * 1.2 + 0.8;
-        this.color = `rgba(0, 255, 0, 1)`; 
-        this.originalColor = this.color;
+        this.color = "rgba(0, 255, 0, 1)";
         this.targetColor = this.color;
-        this.colorOffset = Math.random() * 360;
-        this.idleAngle = (i / amount) * Math.PI * 2; 
+        this.idleAngle = (this.index / amount) * Math.PI * 2;
     }
-
-    explode() {
-        const angle = Math.random() * Math.PI * 2;
-        const force = Math.random() * 60 + 20;
-        this.vx = Math.cos(angle) * force;
-        this.vy = Math.sin(angle) * force;
-    }
-
-    update(targetCtx, isExploding, isIdleMode) {
-        let finalColor = this.targetColor;
-
+    update() {
         if (frenzyTimer > 0) {
-            const h = (Date.now() / 4 + this.colorOffset) % 360;
-            finalColor = `hsla(${h}, 100%, 50%, 1)`;
-        } else if (isIdleMode) {
-            const timePhase = (Date.now() * 0.005) % (Math.PI * 2);
-            let dist = Math.abs(timePhase - this.idleAngle);
-            if (dist > Math.PI) dist = Math.PI * 2 - dist;
-            if (dist < 0.5) { 
-                const brightness = 1 - (dist / 0.5);
-                const val = Math.floor(brightness * 255);
-                finalColor = `rgba(${val}, 255, ${val}, 1)`;
-            } else {
-                finalColor = this.originalColor;
-            }
-        }
-
-        if (isExploding || frenzyTimer > 0) {
-            this.x += this.vx; this.y += this.vy;
-            if (this.x < 0 || this.x > this.canvasRef.width) this.vx *= -0.8;
-            if (this.y < 0 || this.y > this.canvasRef.height) this.vy *= -0.8;
-            this.vx *= 0.95; this.vy *= 0.95;
-            if (frenzyTimer <= 0) {
-                this.vx += (this.dest.x - this.x) / 80;
-                this.vy += (this.dest.y - this.y) / 80;
-            }
+            this.x += (Math.random() - 0.5) * 4;
+            this.y += (Math.random() - 0.5) * 4;
+            const h = (Date.now() / 5 + this.index) % 360;
+            ctx.fillStyle = `hsla(${h}, 100%, 50%, 1)`;
         } else {
-            const easing = isIdleMode ? 30 : 10;
-            this.vx = (this.vx + (this.dest.x - this.x) / easing) * 0.7;
-            this.vy = (this.vy + (this.dest.y - this.y) / easing) * 0.7;
+            const ease = isIdle ? 45 : 12;
+            this.vx = (this.dest.x - this.x) / ease;
+            this.vy = (this.dest.y - this.y) / ease;
             this.x += this.vx; this.y += this.vy;
+            ctx.fillStyle = this.targetColor;
         }
-
-        targetCtx.fillStyle = finalColor;
-        targetCtx.fillRect(this.x - this.r, this.y - this.r, this.r * 2, this.r * 2);
+        ctx.fillRect(this.x, this.y, this.r, this.r);
     }
 }
 
-function handleSync(pArray, text, tCanvas, tCtx, targetType) {
-    if (!tCanvas || tCanvas.width <= 0) return;
-
-    if (targetType === 'local' && /BOOM|KABOOM/i.test(text.trim())) triggerExplosionSequence();
-
-    const noMedia = !currentImg;
-    if ((!text || text.trim() === "") && noMedia) {
-        if (targetType === 'local') {
-            isIdle = true; statusHint.textContent = "Modo Econômico Ativo 🌀";
-            const cx = tCanvas.width / 2, cy = tCanvas.height / 2;
-            const radius = Math.min(tCanvas.width, tCanvas.height) * 0.28;
-            pArray.forEach((p, i) => {
-                const ang = (i / pArray.length) * Math.PI * 2;
-                p.idleAngle = ang;
-                p.dest = { x: cx + Math.cos(ang) * radius, y: cy + Math.sin(ang) * radius };
-                p.originalColor = "rgba(0, 140, 0, 0.7)";
-                p.targetColor = p.originalColor;
-            });
-        }
+function handleSync() {
+    const text = inputTxt.value.trim();
+    if (!text && !currentImg) {
+        isIdle = true;
+        statusHint.textContent = "Protocolo em Repouso... 🌀";
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        const radius = Math.min(canvas.width, canvas.height) * 0.35;
+        localParticles.forEach(p => {
+            p.dest.x = cx + Math.cos(p.idleAngle) * radius;
+            p.dest.y = cy + Math.sin(p.idleAngle) * radius;
+            p.targetColor = "rgba(0, 80, 0, 0.5)";
+        });
         return;
     }
 
-    if (targetType === 'local') {
-        isIdle = false; 
-        statusHint.textContent = currentImg ? "Exibindo Imagem 🖼️" : "Processando Texto ✍️";
-        if (!explosionSequenceActive && frenzyTimer <= 0) isExplodingLocal = false;
-    }
-
-    offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
-    offCtx.clearRect(0,0, offCanvas.width, offCanvas.height);
+    isIdle = false;
+    statusHint.textContent = currentImg ? "Renderizando Visual... 🖼️" : "Processando Código... ✍️";
+    
+    // Configura canvas de processamento
+    offCanvas.width = canvas.width;
+    offCanvas.height = canvas.height;
+    offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
 
     if (currentImg) {
-        const aspect = currentImg.width / currentImg.height;
-        let iw = offCanvas.width * 0.9, ih = iw / aspect;
-        if (ih > offCanvas.height * 0.9) { ih = offCanvas.height * 0.9; iw = ih * aspect; }
-        offCtx.drawImage(currentImg, (offCanvas.width - iw)/2, (offCanvas.height - ih)/2, iw, ih);
+        // CORREÇÃO DE PROPORÇÃO (RESPEITA ASPECT RATIO)
+        const canvasRatio = canvas.width / canvas.height;
+        const imgRatio = currentImg.width / currentImg.height;
+        
+        let drawW, drawH;
+        if (imgRatio > canvasRatio) {
+            drawW = canvas.width * 0.95;
+            drawH = drawW / imgRatio;
+        } else {
+            drawH = canvas.height * 0.85;
+            drawW = drawH * imgRatio;
+        }
+
+        const startX = (canvas.width - drawW) / 2;
+        const startY = (canvas.height - drawH) / 2;
+        
+        offCtx.drawImage(currentImg, startX, startY, drawW, drawH);
     } else {
-        const lines = text.split(/\n/);
-        const fs = Math.min(tCanvas.width / (Math.max(...lines.map(l => l.length)) * 0.7 + 1), (tCanvas.height / (lines.length + 1)) * 0.8, 110);
-        offCtx.font = `bold ${fs}px sans-serif`;
-        offCtx.fillStyle = "white"; offCtx.textAlign = "center"; offCtx.textBaseline = "middle";
-        const lh = fs * 1.2, th = lines.length * lh;
-        const sy = (tCanvas.height - th) / 2 + lh / 2;
-        lines.forEach((l, i) => offCtx.fillText(l.trim(), tCanvas.width/2, sy + i*lh));
+        const lines = text.split("\n");
+        const fontSize = Math.min(canvas.width / 10, canvas.height / (lines.length * 1.5), 160);
+        offCtx.font = `bold ${fontSize}px sans-serif`;
+        offCtx.fillStyle = "white";
+        offCtx.textAlign = "center";
+        offCtx.textBaseline = "middle";
+        lines.forEach((l, i) => {
+            const y = (canvas.height / 2) - ((lines.length - 1) * fontSize * 0.6) + (i * fontSize * 1.2);
+            offCtx.fillText(l, canvas.width / 2, y);
+        });
     }
 
-    const imgData = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
-    const pts = [];
-    const step = currentImg ? 2 : 3; 
-    for(let y=0; y<tCanvas.height; y+=step) {
-        for(let x=0; x<tCanvas.width; x+=step) {
-            const idx = (y * tCanvas.width + x) * 4;
-            if(imgData[idx+3] > 50) {
-                pts.push({ x, y, color: `rgb(${imgData[idx]}, ${imgData[idx+1]}, ${imgData[idx+2]})` });
+    const imgData = offCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const points = [];
+    const step = 2; 
+
+    for (let y = 0; y < canvas.height; y += step) {
+        for (let x = 0; x < canvas.width; x += step) {
+            const i = (y * canvas.width + x) * 4;
+            if (imgData[i + 3] > 128) {
+                points.push({ x, y, r: imgData[i], g: imgData[i+1], b: imgData[i+2] });
             }
         }
     }
-    
-    if(pts.length > 0) {
-        pArray.forEach((p, i) => {
-            const pt = pts[i % pts.length];
-            p.dest = { x: pt.x, y: pt.y };
-            p.targetColor = pt.color;
+
+    if (points.length > 0) {
+        localParticles.forEach((p, i) => {
+            const pt = points[i % points.length];
+            p.dest.x = pt.x;
+            p.dest.y = pt.y;
+            p.targetColor = `rgb(${pt.r}, ${pt.g}, ${pt.b})`;
         });
     }
 }
 
-// --- CONTROLES DE IMAGEM ---
+// --- CONTROLES DE MEDIA ---
 document.getElementById('img-upload').onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = (ev) => {
         const img = new Image();
-        img.onload = () => { 
-            currentImg = img; 
-            handleSync(localParticles, inputTxt.value, canvas, ctx, 'local'); 
-        };
-        img.src = event.target.result;
+        img.onload = () => { currentImg = img; handleSync(); };
+        img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
 };
 
-function clearMedia() {
-    currentImg = null;
-    document.getElementById('img-upload').value = "";
-    handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
+function clearMedia() { 
+    currentImg = null; 
+    document.getElementById('img-upload').value = ""; 
+    handleSync(); 
 }
 
-inputTxt.oninput = () => {
-    handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
-    Object.values(connections).forEach(p => p.conn.send({ type: 'text_sync', value: inputTxt.value }));
-};
-
-function triggerExplosionSequence() {
-    if (explosionSequenceActive) return;
-    explosionSequenceActive = true;
-    let countdown = 10;
-    const runTimer = () => {
-        if (countdown > 0) {
-            playBeep(countdown <= 5 ? 1200 : 880, 0.1, 0.1);
-            countdown--; setTimeout(runTimer, countdown <= 5 ? 500 : 1000);
-        } else {
-            playExplosion(); isExplodingLocal = true; frenzyTimer = 600; 
-            localParticles.forEach(p => p.explode()); explosionSequenceActive = false;
-        }
-    };
-    runTimer();
-}
+inputTxt.oninput = handleSync;
 
 function resize() {
-    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-    handleSync(localParticles, inputTxt.value, canvas, ctx, 'local');
-}
-
-function resizeRemote() {
-    const c = document.getElementById("remote-canvas-container");
-    if (c && c.clientWidth > 0) { remoteCanvas.width = c.clientWidth; remoteCanvas.height = c.clientHeight; }
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    handleSync();
 }
 
 function loop() {
-    ctx.fillStyle = "rgba(10, 10, 10, 0.25)";
+    ctx.fillStyle = "rgba(10, 10, 10, 0.35)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     if (frenzyTimer > 0) frenzyTimer--;
-    
-    localParticles.forEach(p => p.update(ctx, isExplodingLocal, isIdle));
-
-    if(remotePopup.style.display === "flex" && remoteCanvas.width > 0) {
-        remoteCtx.fillStyle = "rgba(5, 5, 5, 0.3)";
-        remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
-        remoteParticles.forEach(p => p.update(remoteCtx, false, !remoteInputVal));
-    }
+    localParticles.forEach(p => p.update());
     requestAnimationFrame(loop);
 }
 
-window.addEventListener('resize', () => { resize(); resizeRemote(); });
-for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
-resize(); loop();
+window.addEventListener('resize', resize);
+for(let i=0; i<amount; i++) localParticles.push(new Particle(i));
 
 window.onload = () => { 
-    mpPanel.style.display = "flex"; 
-    applyAudioStates(); // Carrega os botões e estados salvos no localStorage
-    resize(); 
+    applyAudioStates();
+    resize();
+    loop();
 };
 </script>
 </body>
