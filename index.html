@@ -1,526 +1,411 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASCII_Genv4.6_LinkSupport</title>
-    <style>
-        :root {
-            --green: #00ff41;
-            --bg: #050505;
-            --accent: #008f11;
-            --panel: #111;
-            --danger: #ff3e3e;
-            --modal-bg: rgba(0, 0, 0, 0.95);
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bolinhas Stats Lobby 😼🌐</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+    body { margin:0; background:#0a0a0a; overflow:hidden; font-family:'Courier New', monospace; cursor:crosshair; color: #0f0; }
+    
+    canvas { display: block; }
 
-        body {
-            background-color: var(--bg);
-            color: var(--green);
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-            user-select: none;
-        }
+    #ui { 
+        position:fixed; top:20px; left:50%; transform:translateX(-50%); 
+        z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;
+    }
 
-        /* Viewport e Panes */
-        .viewport {
-            display: flex;
-            flex: 1;
-            padding: 15px;
-            gap: 15px;
-            overflow: hidden;
-            align-items: stretch;
-            justify-content: center;
-            background: radial-gradient(circle at center, #0a0a0a 0%, #050505 100%);
-        }
+    #stats { 
+        position:fixed; top:10px; right:10px; background:rgba(0,0,0,.9); color:#0f0; 
+        border:1px solid rgba(0, 255, 0, 0.5); padding:10px; font-size:11px; 
+        border-radius:4px; text-transform:uppercase; box-shadow:0 0 15px rgba(0,255,0,0.2); 
+        z-index:100; line-height:1.4; pointer-events:auto; min-width: 180px;
+    }
 
-        .pane {
-            flex: 1 1 auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: #000;
-            border: 2px solid #222;
-            position: relative;
-            overflow: hidden;
-            box-shadow: inset 0 0 30px rgba(0,0,0,1);
-            max-width: 640px;
-            min-width: 300px;
-        }
+    #player-list-container {
+        margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;
+        max-height: 200px; overflow-y: auto; scrollbar-width: thin;
+    }
+    .player-item { 
+        padding: 5px; border: 1px transparent; cursor: pointer; 
+        display: flex; justify-content: space-between; transition: 0.2s;
+    }
+    .player-item:hover { background: rgba(0,255,0,0.1); border-color: #0f0; }
+    .player-item.me { color: #fff; font-weight: bold; cursor: default; }
 
-        .pane label {
-            position: absolute;
-            top: 12px; left: 12px;
-            font-size: 10px;
-            background: rgba(0,0,0,0.9);
-            padding: 6px 12px;
-            border: 1px solid var(--green);
-            z-index: 100;
-            letter-spacing: 2px;
-            font-weight: bold;
-        }
+    input#txt { 
+        padding:12px 20px; font-size:18px; border-radius:50px; border:2px solid #333; 
+        width:350px; text-align:center; background:rgba(0,0,0,0.9); color:#fff; outline:none;
+        transition: border-color 0.3s;
+    }
+    input#txt:focus { border-color: #0f0; }
 
-        .media-layer {
-            display: none;
-            width: 100%; height: 100%;
-            justify-content: center; align-items: center;
-            opacity: 0;
-            transition: opacity 0.5s ease;
-        }
+    #multiplayer-panel {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        display: none; flex-direction: column; gap: 15px; align-items: center;
+        z-index: 1000; background: rgba(0,0,0,0.98); padding: 40px; border-radius: 15px;
+        border: 2px solid #0f0; box-shadow: 0 0 50px rgba(0,255,0,0.3);
+    }
+    .mp-input { 
+        width: 250px; font-size: 16px; padding: 10px; border-radius: 5px; 
+        background: #111; border: 1px solid #444; color: #0f0; text-align: center; outline: none;
+    }
+    .btn { 
+        cursor: pointer; padding: 12px 25px; background: #0f0; color: #000; 
+        border: none; border-radius: 5px; font-weight: bold; font-size: 16px; width: 100%;
+    }
 
-        #src-layer video, #src-layer img {
-            width: 100%; height: 100%;
-            object-fit: contain;
-        }
+    #remote-popup {
+        position: fixed; top: 10%; left: 10%; width: 80%; height: 80%;
+        background: #000; border: 2px solid #0f0; border-radius: 10px;
+        z-index: 2000; display: none; flex-direction: column;
+        box-shadow: 0 0 100px #000;
+    }
+    #popup-header { background: #0f0; color: #000; padding: 10px; display: flex; justify-content: space-between; font-weight: bold; }
+    #close-popup { cursor: pointer; background: #000; color: #fff; border: none; padding: 0 10px; }
+    #remote-canvas-container { flex: 1; position: relative; overflow: hidden; background: #050505; }
+    #remote-input-hint { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: #0f0; font-size: 12px; background: rgba(0,0,0,0.8); padding: 5px 10px; }
 
-        .placeholder {
-            color: #1a1a1a;
-            font-size: 24px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 5px;
-            text-align: center;
-        }
-
-        canvas {
-            max-width: 100%; max-height: 100%;
-            object-fit: contain;
-            image-rendering: pixelated;
-        }
-
-        /* Sidebar */
-        .sidebar {
-            width: 340px;
-            background: var(--panel);
-            padding: 25px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            border-left: 3px solid #222;
-            overflow-y: auto;
-            box-shadow: -15px 0 40px rgba(0,0,0,0.9);
-            z-index: 200;
-        }
-
-        .control-group { display: flex; flex-direction: column; gap: 5px; }
-        label { font-size: 10px; text-transform: uppercase; color: #777; font-weight: 700; }
-        .stat-val { color: var(--green); float: right; font-size: 11px; background: #000; padding: 1px 6px; border: 1px solid #222; }
-
-        .btn {
-            background: #1a1a1a;
-            border: 1px solid var(--green);
-            color: var(--green);
-            padding: 12px;
-            cursor: pointer;
-            font-weight: bold;
-            text-transform: uppercase;
-            font-size: 11px;
-            text-align: center;
-        }
-
-        .btn:hover:not(:disabled) { background: var(--green); color: #000; box-shadow: 0 0 15px var(--green); }
-        .btn-start { background: #001f05; border-width: 2px; }
-        .btn-rec-active { background: var(--danger) !important; color: white !important; animation: pulse 1.5s infinite; }
-
-        input[type="text"] {
-            background: #000;
-            border: 1px solid #333;
-            color: var(--green);
-            padding: 10px;
-            font-family: monospace;
-            outline: none;
-            font-size: 12px;
-        }
-
-        input[type="text"]:focus { border-color: var(--green); }
-
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-
-        /* Modal de Aviso */
-        #danger-modal {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--modal-bg);
-            z-index: 1000;
-            display: none;
-            justify-content: center; align-items: center;
-            backdrop-filter: blur(10px);
-        }
-
-        .modal-content {
-            background: #000;
-            border: 2px solid var(--danger);
-            padding: 40px;
-            max-width: 500px;
-            text-align: center;
-            box-shadow: 0 0 50px rgba(255, 62, 62, 0.3);
-        }
-
-        #buffer { display: none; }
-    </style>
+    #chat-toggle {
+        position: fixed; bottom: 20px; right: 20px; width: 60px; height: 60px;
+        background: #0f0; border-radius: 50%; display: flex; align-items: center;
+        justify-content: center; cursor: pointer; z-index: 300; font-size: 24px; border: none;
+    }
+    #chat-window {
+        position: fixed; bottom: 90px; right: 20px; width: 300px; height: 400px;
+        background: rgba(0, 5, 0, 0.95); border: 2px solid #0f0; border-radius: 10px;
+        display: none; flex-direction: column; z-index: 299; overflow: hidden;
+    }
+    #chat-messages { flex: 1; padding: 10px; overflow-y: auto; font-size: 13px; }
+    #chat-input-area { display: flex; border-top: 1px solid #0f0; padding: 5px; }
+    #chat-input { background: transparent; border: none; color: #fff; flex: 1; padding: 8px; outline: none; }
+</style>
 </head>
-<body onclick="unlockAudio()">
-    <div id="danger-modal">
-        <div class="modal-content">
-            <h2 style="color:var(--danger)">⚠️ ATENÇÃO!</h2>
-            <p style="color:#ccc">O Modo de Renderização selecionado (<b>PARTÍCULAS</b>) poderá deixar o seu dispositivo <b>LENTO</b> e causar <b>CRASHES</b>.</p>
-            <p style="color:#ccc">Processamos +20.000 itens simultâneos. Prossiga por sua conta e risco!</p>
-            <div style="margin-top: 30px; display: flex; flex-direction: column; gap: 15px;">
-                <label style="display:flex; align-items:center; gap:10px; color:#888;">
-                    <input type="checkbox" id="no-show-again"> Não mostrar novamente
-                </label>
-                <div style="display:flex; gap:10px;">
-                    <button class="btn" style="flex:1" onclick="cancelParticles()">CANCELAR</button>
-                    <button class="btn" style="flex:1; background:var(--danger); border-color:white; color:white;" onclick="confirmParticles()">CONTINUAR</button>
-                </div>
-            </div>
-        </div>
+<body>
+
+<div id="stats">
+    <div style="border-bottom: 1px solid #0f0; margin-bottom: 5px; padding-bottom: 5px; font-weight: bold;">HUB PROTOCOL Z</div>
+    <div>SALA: <span id="room-id-display" style="color:white;">---</span></div>
+    <div>STATUS: <span id="peer-status" style="color:red">OFFLINE</span></div>
+    <div id="player-list-container">
+        <div style="font-size: 9px; color: #666; margin-bottom: 5px;">PLAYERS ONLINE (CLIQUE P/ ENTRAR):</div>
+        <div id="players-list"></div>
     </div>
+</div>
 
-    <div class="viewport">
-        <div class="pane">
-            <label>FONTE ORIGINAL</label>
-            <div class="media-layer" id="src-layer">
-                <video id="v-core" muted playsinline crossorigin="anonymous"></video>
-                <img id="img-core" alt="preview" crossorigin="anonymous">
-            </div>
-            <div class="placeholder" id="ph-1">MÍDIA AUSENTE</div>
-        </div>
-        <div class="pane">
-            <label>SAÍDA RENDERIZADA</label>
-            <div class="media-layer" id="out-layer">
-                <canvas id="canvas-core"></canvas>
-            </div>
-            <div class="placeholder" id="ph-2">AGUARDANDO START</div>
-        </div>
+<div id="ui">
+    <input type="text" id="txt" placeholder="Seu Canvas Privado..." maxlength="100">
+</div>
+
+<div id="multiplayer-panel">
+    <div style="color:#0f0; margin-bottom:10px; font-weight:bold;">CONFIGURAÇÃO DE ACESSO</div>
+    <input type="text" id="user-nick" class="mp-input" placeholder="Seu Nick">
+    <input type="text" id="target-id" class="mp-input" placeholder="ID da Sala (Opcional)">
+    <div style="font-size: 10px; color: #888; margin-top: -5px; margin-bottom: 5px;">Use o mesmo ID para ver os amigos</div>
+    <button class="btn" onclick="joinLobby()">ENTRAR NO LOBBY</button>
+</div>
+
+<button id="chat-toggle">💬</button>
+<div id="chat-window">
+    <div style="background:#0f0; color:#000; padding:5px; font-size:10px; text-align:center; font-weight:bold;">GLOBAL CHAT</div>
+    <div id="chat-messages"></div>
+    <div id="chat-input-area">
+        <input type="text" id="chat-input" placeholder="Mensagem..." autocomplete="off">
     </div>
+</div>
 
-    <div class="sidebar">
-        <div id="monitor">SISTEMA PRONTO</div>
-        
-        <div class="control-group">
-            <label>Link Externo (MP4 / WebM / Direct Link)</label>
-            <input type="text" id="url-input" placeholder="Cole o link do vídeo aqui...">
-            <button class="btn" onclick="loadExternalUrl()" style="margin-top:5px; padding:8px;">🔗 CARREGAR LINK</button>
-        </div>
-
-        <input type="file" id="f-selector" accept="video/*,image/*,image/gif" style="display:none">
-        <button class="btn" onclick="document.getElementById('f-selector').click()">📁 ARQUIVO LOCAL</button>
-        
-        <button class="btn btn-start" id="btn-init" disabled>▶ INICIAR ENGINE</button>
-        <hr>
-        
-        <div class="control-group">
-            <label>Modo de Renderização <span class="stat-val" id="s-style">ASCII</span></label>
-            <select id="c-style" class="btn" style="padding: 5px;" onchange="checkStyleChange(this.value)">
-                <option value="classic">ASCII CLÁSSICO</option>
-                <option value="blocks">BLOCOS DENSOS</option>
-                <option value="particles">PARTÍCULAS (CUIDADO! 🔥)</option>
-            </select>
-        </div>
-
-        <div class="control-group"><label>Resolução <span class="stat-val" id="s-rs">100</span></label><input type="range" id="c-rs" min="30" max="250" value="100"></div>
-        <div class="control-group"><label>Brilho <span class="stat-val" id="s-br">1.0</span></label><input type="range" id="c-br" min="0.5" max="2.5" step="0.1" value="1"></div>
-        <div class="control-group"><label>Saturação <span class="stat-val" id="s-col">1.0</span></label><input type="range" id="c-col" min="0" max="1" step="0.1" value="1"></div>
-        <div class="control-group"><label>Volume <span class="stat-val" id="s-vol">0.5</span></label><input type="range" id="c-vol" min="0" max="1" step="0.1" value="0.5"></div>
-        <div class="control-group"><label>FPS <span class="stat-val" id="s-fps">30</span></label><input type="range" id="c-fps" min="10" max="60" value="30"></div>
-
-        <hr>
-        <button class="btn" id="btn-rec" disabled>⏺ GRAVAR (AUTO-STOP)</button>
-        <button class="btn" id="btn-png">📸 CAPTURAR PNG</button>
+<div id="remote-popup">
+    <div id="popup-header">
+        <span id="popup-title">Tela de: USER</span>
+        <button id="close-popup">X</button>
     </div>
+    <div id="remote-canvas-container">
+        <canvas id="remote-canvas"></canvas>
+        <div id="remote-input-hint">Interagindo com a Tela de um Usuário</div>
+    </div>
+</div>
 
-    <canvas id="buffer"></canvas>
+<canvas id="canvas"></canvas>
 
 <script>
-/**
- * ASCII GENERATOR v4.6 - URL SUPPORT & REFINEMENTS
- */
+// --- CONFIG E ESTADO ---
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const inputTxt = document.getElementById("txt");
+const mpPanel = document.getElementById("multiplayer-panel");
+const playersListDiv = document.getElementById("players-list");
 
-const v = document.getElementById('v-core');
-const img = document.getElementById('img-core');
-const out = document.getElementById('canvas-core');
-const oCtx = out.getContext('2d', { alpha: false });
-const buf = document.getElementById('buffer');
-const bCtx = buf.getContext('2d', { willReadFrequently: true });
+const remotePopup = document.getElementById("remote-popup");
+const remoteCanvas = document.getElementById("remote-canvas");
+const remoteCtx = remoteCanvas.getContext("2d");
 
-const btnInit = document.getElementById('btn-init');
-const btnRec = document.getElementById('btn-rec');
-const monitor = document.getElementById('monitor');
-const modal = document.getElementById('danger-modal');
+let peer, connections = {};
+let myId = "";
+let userName = "";
+let isConnected = false;
+let activeRemoteConn = null;
 
-const charMapClassic = "$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,\"^`'. ";
-const charMapBlocks = "█▓▒░ ";
+let localParticles = [];
+const amount = 3000;
 
-let lastTick = 0;
-let currentMode = 'idle';
-let isRunning = false;
-let isRecording = false;
-let recorder = null;
-let chunks = [];
-let audioDest = null;
-let audioCtx = null;
-let lastSelectedStyle = "classic";
+let remoteParticles = [];
+let remoteInputVal = "";
 
-function unlockAudio() {
-    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+// --- SISTEMA P2P MELHORADO ---
+
+function generateID() {
+    return Math.random().toString(36).substr(2, 5).toUpperCase();
 }
 
-// Carregar Link Externo
-function loadExternalUrl() {
-    const url = document.getElementById('url-input').value.trim();
-    if (!url) return;
-
-    isRunning = false;
-    v.pause();
-    resetDisplay();
-
-    // Lógica básica para detectar tipo de arquivo pela extensão ou se é YouTube
-    if (url.includes('youtube.com') || url.includes('youtu.be')) {
-        monitor.innerText = "AVISO: Links do YouTube requerem Proxy CORS para renderização.";
-        // Nota: O YouTube bloqueia canvas direto. Para fins educacionais, tentamos carregar como vídeo.
-        // O ideal para YouTube seria usar um serviço de stream compatível ou o player IFrame.
-        v.src = url; 
-    } else {
-        currentMode = 'video';
-        v.src = url;
-        v.load();
-    }
-
-    v.onloadedmetadata = () => {
-        btnInit.disabled = false;
-        monitor.innerText = "LINK CARREGADO";
-    };
+function joinLobby() {
+    userName = document.getElementById("user-nick").value.trim() || "Anon" + Math.floor(Math.random()*99);
+    let roomId = document.getElementById("target-id").value.trim().toUpperCase();
     
-    v.onerror = () => {
-        // Tenta como imagem se falhar como vídeo
-        currentMode = 'image';
-        img.src = url;
-        img.onload = () => {
-            btnInit.disabled = false;
-            monitor.innerText = "IMAGEM EXTERNA CARREGADA";
-        };
-        img.onerror = () => monitor.innerText = "ERRO AO CARREGAR LINK (CORS?)";
-    };
-}
-
-function resetDisplay() {
-    document.querySelectorAll('.media-layer').forEach(l => {
-        l.style.display = 'none';
-        l.style.opacity = '0';
-    });
-    document.querySelectorAll('.placeholder').forEach(p => p.style.display = 'flex');
-}
-
-v.onended = () => {
-    monitor.innerText = "MÍDIA FINALIZADA";
-    isRunning = false;
-    if (isRecording) stopRecording();
-};
-
-function checkStyleChange(val) {
-    if (val === 'particles') {
-        if (!localStorage.getItem('skipParticleWarning')) modal.style.display = 'flex';
-    } else {
-        lastSelectedStyle = val;
-    }
-}
-
-function confirmParticles() {
-    if (document.getElementById('no-show-again').checked) localStorage.setItem('skipParticleWarning', 'true');
-    modal.style.display = 'none';
-    lastSelectedStyle = 'particles';
-}
-
-function cancelParticles() {
-    modal.style.display = 'none';
-    document.getElementById('c-style').value = lastSelectedStyle;
-    updateBadges();
-}
-
-function updateBadges() {
-    document.querySelectorAll('input[type=range]').forEach(i => {
-        const b = document.getElementById('s-'+i.id.split('-')[1]);
-        if(b) b.innerText = i.value;
-    });
-    if (v && currentMode === 'video') v.volume = document.getElementById('c-vol').value;
-}
-
-document.getElementById('f-selector').onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    isRunning = false;
-    v.pause();
-    resetDisplay();
-
-    const url = URL.createObjectURL(file);
-    if (file.type.startsWith('video')) {
-        currentMode = 'video';
-        v.src = url;
-        v.loop = false;
-        v.onloadedmetadata = () => { btnInit.disabled = false; monitor.innerText = "ARQUIVO CARREGADO"; };
-    } else {
-        currentMode = file.type === 'image/gif' ? 'gif' : 'image';
-        img.src = url;
-        img.onload = () => { btnInit.disabled = false; monitor.innerText = "IMAGEM CARREGADA"; };
-    }
-};
-
-async function initAudio() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioCtx.createMediaElementSource(v);
-        audioDest = audioCtx.createMediaStreamDestination();
-        source.connect(audioCtx.destination);
-        source.connect(audioDest);
-    }
-    if (audioCtx.state === 'suspended') await audioCtx.resume();
-}
-
-function processFrame() {
-    if (!isRunning && currentMode === 'video') return;
-    const source = currentMode === 'video' ? v : img;
-    const res = parseInt(document.getElementById('c-rs').value);
-    const colorVal = parseFloat(document.getElementById('c-col').value);
-    const style = document.getElementById('c-style').value;
+    myId = roomId || generateID();
     
-    const sw = source.videoWidth || source.naturalWidth || 100;
-    const sh = source.videoHeight || source.naturalHeight || 100;
-    const w = res;
-    const h = Math.round(res * (sh / sw) * 0.5);
+    // CORREÇÃO: Usamos um ID determinístico baseado na sala + nick
+    // No PeerJS público, isso ajuda a encontrar o "host" ou outros membros
+    const fullPeerId = "BALLS_ROOM_" + myId + "_" + userName.replace(/\s/g, '_');
+    
+    peer = new Peer(fullPeerId);
 
-    buf.width = w; buf.height = h;
-    bCtx.filter = `brightness(${document.getElementById('c-br').value}) grayscale(${1 - colorVal})`;
-    try {
-        bCtx.drawImage(source, 0, 0, w, h);
-    } catch(e) {
-        monitor.innerText = "ERRO DE RENDERIZAÇÃO (CORS)";
-        isRunning = false;
-        return;
-    }
-
-    const pixels = bCtx.getImageData(0, 0, w, h).data;
-    const cellW = 8, cellH = 10;
-    out.width = w * cellW; out.height = h * cellH;
-    oCtx.fillStyle = "#000"; oCtx.fillRect(0, 0, out.width, out.height);
-
-    if (style !== 'particles') {
-        oCtx.font = `bold 10px monospace`;
-        oCtx.textBaseline = "top";
-        const activeMap = (style === 'blocks') ? charMapBlocks : charMapClassic;
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                const i = (y * w + x) * 4;
-                const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
-                const avg = (r * 0.299 + g * 0.587 + b * 0.114);
-                const charIdx = Math.floor((avg / 256) * activeMap.length);
-                oCtx.fillStyle = (colorVal > 0.1) ? `rgb(${r},${g},${b})` : `rgb(${avg},${avg},${avg})`;
-                oCtx.fillText(activeMap[charIdx] || " ", x * cellW, y * cellH);
-            }
-        }
-    } else {
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
-                const i = (y * w + x) * 4;
-                const r = pixels[i], g = pixels[i+1], b = pixels[i+2];
-                const avg = (r * 0.299 + g * 0.587 + b * 0.114);
-                if (avg > 20) {
-                    const radius = (avg / 255) * (cellW / 2) * 1.5;
-                    oCtx.beginPath();
-                    oCtx.arc(x * cellW + cellW/2, y * cellH + cellH/2, radius, 0, Math.PI * 2);
-                    oCtx.fillStyle = (colorVal > 0.1) ? `rgb(${r},${g},${b})` : `rgb(${avg},${avg},${avg})`;
-                    oCtx.fill();
-                }
-            }
-        }
-    }
-}
-
-function mainLoop(now) {
-    if (!isRunning) return;
-    const interval = 1000 / parseInt(document.getElementById('c-fps').value);
-    if (now - lastTick >= interval) {
-        processFrame();
-        lastTick = now;
-    }
-    requestAnimationFrame(mainLoop);
-}
-
-btnInit.onclick = async () => {
-    unlockAudio();
-    isRunning = true;
-    document.querySelectorAll('.placeholder').forEach(p => p.style.display = 'none');
-    document.querySelectorAll('.media-layer').forEach(l => {
-        l.style.display = 'flex';
-        setTimeout(() => l.style.opacity = '1', 50);
+    peer.on('open', (id) => {
+        document.getElementById("room-id-display").textContent = myId;
+        document.getElementById("peer-status").textContent = "ONLINE";
+        document.getElementById("peer-status").style.color = "#0f0";
+        isConnected = true;
+        mpPanel.style.display = "none";
+        
+        // CORREÇÃO: Tenta notificar a rede que entramos (Simulação de Discovery)
+        console.log("Entrou como:", id);
+        updatePlayerList();
     });
 
-    if (currentMode === 'video') {
-        await initAudio();
-        v.muted = false;
-        v.play().catch(e => monitor.innerText = "ERRO AO REPRODUZIR");
-        btnRec.disabled = false;
-    }
-    monitor.innerText = "RENDERIZANDO...";
-    requestAnimationFrame(mainLoop);
-};
+    // Quando alguém se conecta a nós
+    peer.on('connection', (conn) => {
+        setupConnection(conn);
+    });
 
-function stopRecording() {
-    isRecording = false;
-    if (recorder) recorder.stop();
-    btnRec.innerText = "⏺ GRAVAR (AUTO-STOP)";
-    btnRec.classList.remove('btn-rec-active');
-    monitor.innerText = "DOWNLOAD INICIADO";
+    // Tratamento de erro (ID já ocupado ou erro de rede)
+    peer.on('error', (err) => {
+        if(err.type === 'unavailable-id') {
+            // Se o ID com Nick já existe, gera um novo nick
+            document.getElementById("user-nick").value = userName + Math.floor(Math.random()*10);
+            joinLobby();
+        } else {
+            console.error("PeerJS Error:", err);
+            document.getElementById("peer-status").textContent = "ERRO CONEXÃO";
+            document.getElementById("peer-status").style.color = "red";
+        }
+    });
 }
 
-btnRec.onclick = async () => {
-    if (!isRecording) {
-        if (currentMode === 'video') {
-            v.pause(); v.currentTime = 0;
-            await new Promise(r => setTimeout(r, 100));
-            v.play(); isRunning = true;
-            requestAnimationFrame(mainLoop);
+function setupConnection(conn) {
+    // Extrai o nome do peer do ID formatado
+    const peerParts = conn.peer.split('_');
+    const peerName = peerParts[peerParts.length - 1];
+    
+    connections[conn.peer] = { conn, name: peerName };
+
+    conn.on('open', () => {
+        console.log("Conectado com:", peerName);
+        updatePlayerList();
+        // Envia nosso nick para confirmar
+        conn.send({ type: 'handshake', name: userName });
+    });
+
+    conn.on('data', (data) => {
+        if (data.type === 'chat') appendMessage(data.user, data.msg);
+        if (data.type === 'handshake') {
+            connections[conn.peer].name = data.name;
+            updatePlayerList();
         }
-        isRecording = true; chunks = [];
-        const stream = out.captureStream(parseInt(document.getElementById('c-fps').value));
-        const combined = audioDest ? new MediaStream([...stream.getVideoTracks(), ...audioDest.stream.getAudioTracks()]) : stream;
-        recorder = new MediaRecorder(combined, { mimeType: 'video/webm;codecs=vp8' });
-        recorder.ondataavailable = e => chunks.push(e.data);
-        recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'video/webm' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `ASCII_STREAM_${Date.now()}.webm`;
-            a.click();
-        };
-        recorder.start();
-        btnRec.innerText = "⏹ PARAR GRAVAÇÃO";
-        btnRec.classList.add('btn-rec-active');
-        monitor.innerText = "GRAVANDO STREAM...";
-    } else {
-        stopRecording();
+        if (data.type === 'text_sync' && activeRemoteConn?.peer === conn.peer) {
+            remoteInputVal = data.value;
+            syncParticles(remoteParticles, remoteInputVal, remoteCanvas, remoteCtx);
+        }
+    });
+
+    conn.on('close', () => {
+        delete connections[conn.peer];
+        updatePlayerList();
+    });
+
+    updatePlayerList();
+}
+
+// CORREÇÃO: Função para o usuário se conectar manualmente a alguém caso a lista demore
+function manualConnect() {
+    const targetNick = prompt("Digite o Nick exato do seu amigo:");
+    if(!targetNick) return;
+    const targetPeerId = "BALLS_ROOM_" + myId + "_" + targetNick.replace(/\s/g, '_');
+    const conn = peer.connect(targetPeerId);
+    setupConnection(conn);
+}
+
+function updatePlayerList() {
+    playersListDiv.innerHTML = "";
+    
+    const me = document.createElement("div");
+    me.className = "player-item me";
+    me.textContent = userName + " (VOCÊ)";
+    playersListDiv.appendChild(me);
+
+    Object.keys(connections).forEach(peerId => {
+        const p = document.createElement("div");
+        p.className = "player-item";
+        p.innerHTML = `<span>${connections[peerId].name}</span> <span style="font-size:8px; opacity:0.5;">ONLINE</span>`;
+        p.onclick = () => openRemoteCanvas(peerId);
+        playersListDiv.appendChild(p);
+    });
+
+    // Botão auxiliar se a lista estiver vazia
+    if(Object.keys(connections).length === 0) {
+        const hint = document.createElement("div");
+        hint.style.fontSize = "9px";
+        hint.style.marginTop = "10px";
+        hint.style.color = "#444";
+        hint.innerHTML = "Esperando conexão...<br><button onclick='manualConnect()' style='background:none; border:1px solid #333; color:#666; font-size:9px; cursor:pointer;'>Conectar via Nick</button>";
+        playersListDiv.appendChild(hint);
+    }
+}
+
+function openRemoteCanvas(peerId) {
+    activeRemoteConn = connections[peerId].conn;
+    document.getElementById("popup-title").textContent = "VISUALIZANDO: " + connections[peerId].name;
+    remotePopup.style.display = "flex";
+    remoteParticles = [];
+    for(let i=0; i<amount; i++) remoteParticles.push(new Particle(i, remoteCanvas));
+    resizeRemote();
+}
+
+document.getElementById("close-popup").onclick = () => {
+    remotePopup.style.display = "none";
+    activeRemoteConn = null;
+};
+
+// --- CHAT GLOBAL ---
+
+document.getElementById("chat-input").onkeydown = (e) => {
+    if(e.key === "Enter") {
+        const msg = e.target.value.trim();
+        if(!isConnected) { mpPanel.style.display = "flex"; return; }
+        if(msg) {
+            appendMessage(userName, msg);
+            Object.values(connections).forEach(p => p.conn.send({ type: 'chat', user: userName, msg }));
+            e.target.value = "";
+        }
     }
 };
 
-document.getElementById('btn-png').onclick = () => {
-    const link = document.createElement('a');
-    link.download = `ASCII_SNAP_${Date.now()}.png`;
-    link.href = out.toDataURL('image/png');
-    link.click();
+function appendMessage(u, m) {
+    const div = document.createElement("div");
+    div.style.marginBottom = "5px";
+    div.innerHTML = `<strong>${u}:</strong> ${m}`;
+    const box = document.getElementById("chat-messages");
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+}
+
+document.getElementById("chat-toggle").onclick = () => {
+    const win = document.getElementById("chat-window");
+    win.style.display = win.style.display === "flex" ? "none" : "flex";
 };
 
-document.querySelectorAll('input, select').forEach(el => {
-    el.oninput = () => {
-        updateBadges();
-        if (currentMode !== 'video' && isRunning) processFrame();
-    };
-});
+// --- ENGINE DE PARTÍCULAS ---
 
-updateBadges();
+class Particle {
+    constructor(i, targetCanvas) {
+        this.x = Math.random() * targetCanvas.width;
+        this.y = Math.random() * targetCanvas.height;
+        this.dest = { x: this.x, y: this.y };
+        this.vx = 0; this.vy = 0;
+        this.r = Math.random() * 1.5 + 0.5;
+        this.hue = Math.random() * 360;
+    }
+    update(c, targetCtx) {
+        const accX = (this.dest.x - this.x) / 20;
+        const accY = (this.dest.y - this.y) / 20;
+        this.vx = (this.vx + accX) * 0.8;
+        this.vy = (this.vy + accY) * 0.8;
+        this.x += this.vx; this.y += this.vy;
+
+        targetCtx.fillStyle = `hsl(${this.hue}, 80%, 60%)`;
+        targetCtx.beginPath();
+        targetCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+        targetCtx.fill();
+    }
+}
+
+function syncParticles(pArray, text, tCanvas, tCtx) {
+    if(!text) return;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = tCanvas.width; offCanvas.height = tCanvas.height;
+    const offCtx = offCanvas.getContext("2d");
+    
+    offCtx.fillStyle = "white";
+    offCtx.textAlign = "center";
+    offCtx.textBaseline = "middle";
+    offCtx.font = `bold ${Math.min(tCanvas.width/(text.length*0.6 + 1), 120)}px sans-serif`;
+    offCtx.fillText(text, tCanvas.width/2, tCanvas.height/2);
+    
+    const data = offCtx.getImageData(0,0,tCanvas.width, tCanvas.height).data;
+    const points = [];
+    for(let y=0; y<tCanvas.height; y+=4) {
+        for(let x=0; x<tCanvas.width; x+=4) {
+            if(data[(y*tCanvas.width + x)*4 + 3] > 128) points.push({x, y});
+        }
+    }
+    if(points.length > 0) {
+        pArray.forEach((p, i) => {
+            p.dest = points[i % points.length];
+        });
+    }
+}
+
+inputTxt.oninput = () => {
+    syncParticles(localParticles, inputTxt.value, canvas, ctx);
+    Object.values(connections).forEach(p => p.conn.send({ type: 'text_sync', value: inputTxt.value }));
+};
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+function resizeRemote() {
+    const container = document.getElementById("remote-canvas-container");
+    remoteCanvas.width = container.clientWidth;
+    remoteCanvas.height = container.clientHeight;
+}
+
+function loop() {
+    ctx.fillStyle = "rgba(10, 10, 10, 0.2)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    localParticles.forEach(p => p.update(canvas, ctx));
+
+    if(remotePopup.style.display === "flex") {
+        remoteCtx.fillStyle = "rgba(5, 5, 5, 0.2)";
+        remoteCtx.fillRect(0, 0, remoteCanvas.width, remoteCanvas.height);
+        remoteParticles.forEach(p => p.update(remoteCanvas, remoteCtx));
+    }
+
+    requestAnimationFrame(loop);
+}
+
+window.addEventListener('resize', resize);
+resize();
+for(let i=0; i<amount; i++) localParticles.push(new Particle(i, canvas));
+loop();
+
+inputTxt.onkeydown = (e) => {
+    if(!isConnected) {
+        mpPanel.style.display = "flex";
+        e.preventDefault();
+    }
+};
+
+window.onload = () => { mpPanel.style.display = "flex"; };
 </script>
 </body>
 </html>
