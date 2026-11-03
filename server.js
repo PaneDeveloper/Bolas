@@ -80,8 +80,8 @@ function remoteTask(worker, payload) {
     worker.ws.send(JSON.stringify({ type: "task", id, ...payload }));
   });
 }
-async function processChunk(buffer, width, height, step, yStart, yEnd) {
-  const worker = [...remoteWorkers].find(item => item.ws.readyState === 1 && !item.busy);
+async function processChunk(buffer, width, height, step, yStart, yEnd, useRemote = true) {
+  const worker = useRemote ?  [...remoteWorkers].find(item => item.ws.readyState === 1 && !item.busy) : null;
   if (worker) {
     worker.busy = true;
     try { return await remoteTask(worker, { width, height, step, yStart, yEnd, data: Buffer.from(buffer).toString("base64") }); }
@@ -102,7 +102,7 @@ const server = http.createServer(async (req, res) => {
       const data = await readBody(req);
       if (data.length !== width * height * 4) return reply(res, 400, { error: "Buffer RGBA inválido" });
       const rows = Math.max(32, Math.ceil(height / threads)), jobs = [];
-      for (let y = 0; y < height; y += rows) jobs.push(processChunk(data, width, height, step, y, Math.min(height, y + rows)));
+      const useRemote = url.searchParams.get("distributed") !== "0";\n      for (let y = 0; y < height; y += rows) jobs.push(processChunk(data, width, height, step, y, Math.min(height, y + rows), useRemote));
       const points = (await Promise.all(jobs)).flat().sort((a, b) => a.y - b.y || a.x - b.x);
       return reply(res, 200, { points, workers: remoteWorkers.size || threads });
     } catch (err) { return reply(res, err.status || 500, { error: err.message }); }
