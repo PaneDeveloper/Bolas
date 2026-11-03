@@ -147,7 +147,21 @@
         #counter { font-variant-numeric: tabular-nums; flex: none; }
 
 
-        /* Painel de processamento */
+
+        .dist-toggle {
+            display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px;
+            border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+            color: var(--muted); background: var(--glass); font: inherit; font-size: 12px;
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        }
+        .dist-toggle .switch { width: 28px; height: 16px; padding: 2px; border-radius: 99px; background: #55596d; transition: background .18s; }
+        .dist-toggle .switch::after { content: ""; display: block; width: 12px; height: 12px; border-radius: 50%; background: white; transition: transform .18s; }
+        .dist-toggle[aria-pressed="true"] { color: var(--ink); }
+        .dist-toggle[aria-pressed="true"] .switch { background: #398c68; }
+        .dist-toggle[aria-pressed="true"] .switch::after { transform: translateX(12px); }
+        .dist-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+        @media (max-width: 480px) { .dist-toggle { font-size: 0; gap: 5px; } .dist-toggle .switch { flex:none; } }
+\n        /* Painel de processamento */
         .worker-panel {
             position: fixed; left: 50%; transform: translateX(-50%);
             bottom: calc(112px + env(safe-area-inset-bottom)); z-index: 4;
@@ -198,7 +212,7 @@
         </svg>
         <span>bolinhas</span>
     </div>
-    <div class="chip-wrap" id="chip-wrap">
+    <div style="display:flex;align-items:center;gap:8px;pointer-events:auto">\n    <button type="button" class="dist-toggle" id="dist-toggle" aria-pressed="true" title="Ativar ou desativar workers remotos">Distribuído <span class="switch" aria-hidden="true"></span></button>\n    <div class="chip-wrap" id="chip-wrap">
         <button type="button" class="chip" id="chip" aria-haspopup="true" aria-expanded="false" aria-controls="menu"
                 title="Quantidade de bolinhas. Clique pra mudar.">
             <span class="chip-dot"></span>
@@ -719,7 +733,7 @@ function drawImageToOffscreen() {
 
 
 // ---------- STATUS DOS WORKERS ----------
-const workerPanel = document.getElementById("worker-panel");
+const workerPanel = document.getElementById("worker-panel");\nconst distToggle = document.getElementById("dist-toggle");\nlet distributedEnabled = true;\ntry { distributedEnabled = localStorage.getItem("bolinhas-distributed") !== "false"; } catch {}\nfunction updateDistributedToggle() {\n    distToggle.setAttribute("aria-pressed", String(distributedEnabled));\n    distToggle.title = distributedEnabled ? "Workers remotos ativados" : "Somente processamento local";\n}\nupdateDistributedToggle();\ndistToggle.addEventListener("click", () => {\n    distributedEnabled = !distributedEnabled;\n    try { localStorage.setItem("bolinhas-distributed", String(distributedEnabled)); } catch {}\n    updateDistributedToggle();\n    if (!isIdle) queueSync();\n});
 let workerPollTimer = null;
 async function refreshWorkerStatus() {
     try {
@@ -793,7 +807,7 @@ async function handleSync() {
     let points;
     try {
         const bytes = new Uint8Array(imgData.buffer, imgData.byteOffset, imgData.byteLength);
-        const response = await fetch("/api/points?width=" + canvas.width + "&height=" + canvas.height + "&step=" + step, {
+        const response = await fetch("/api/points?width=" + canvas.width + "&height=" + canvas.height + "&step=" + step + "&distributed=" + (distributedEnabled ? "1" : "0"), {
             method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: bytes
         });
         if (!response.ok) throw new Error("HTTP " + response.status);
