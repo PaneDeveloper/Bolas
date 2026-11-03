@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bolinhas | Nó de processamento</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:#0d0f1c;color:#eef0ff;font:16px system-ui;display:grid;place-items:center;padding:20px}
+main{width:min(520px,100%);padding:28px;border:1px solid #ffffff25;border-radius:24px;background:#ffffff0a}
+p{color:#aeb3d0;line-height:1.6}input{width:100%;padding:12px;border-radius:12px;border:1px solid #ffffff30;background:#ffffff10;color:white}
+button{margin-top:14px;padding:12px 18px;border:0;border-radius:12px;background:#c5caff;color:#101225;font-weight:800;cursor:pointer}
+</style>
+<main><h1>🟣 Nó de processamento</h1>
+<p>Este navegador pode ajudar o servidor Bolinhas a processar imagens em partes. O processamento acontece neste aparelho enquanto esta página estiver aberta.</p>
+<label>Token do servidor (se configurado)</label><input id="token" type="password" autocomplete="off">
+<button id="connect">Conectar como worker</button><p id="status">Desconectado</p>
+<small>Conecte somente a servidores em que você confia. O servidor poderá enviar dados de imagem para processamento.</small></main>
+<script>
+const statusEl=document.querySelector("#status"),button=document.querySelector("#connect"),token=document.querySelector("#token");
+let socket=null;
+function sample(data,width,step,yStart,yEnd){
+ const points=[];
+ for(let y=yStart;y<yEnd;y+=step)for(let x=0;x<width;x+=step){
+  const i=(y*width+x)*4;
+  if(data[i+3]>120)points.push({x,y,r:data[i],g:data[i+1],b:data[i+2]});
+ }
+ return points;
+}
+button.onclick=()=>{
+ if(socket&&socket.readyState===1){socket.close();return;}
+ const protocol=location.protocol==="https:"?"wss:":"ws:";
+ socket=new WebSocket(protocol+"//"+location.host+"/compute");
+ socket.onopen=()=>socket.send(JSON.stringify({type:"hello",token:token.value}));
+ socket.onmessage=event=>{
+  const msg=JSON.parse(event.data);
+  if(msg.type==="welcome"){statusEl.textContent="Conectado. Aguardando tarefas…";button.textContent="Desconectar";return;}
+  if(msg.type==="task"){
+   const binary=atob(msg.data),bytes=new Uint8Array(binary.length);
+   for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
+   socket.send(JSON.stringify({type:"result",id:msg.id,points:sample(bytes,msg.width,msg.step,msg.yStart,msg.yEnd)}));
+  }
+ };
+ socket.onclose=()=>{statusEl.textContent="Desconectado";button.textContent="Conectar como worker";};
+ socket.onerror=()=>statusEl.textContent="Falha na conexão";
+};
+</script></html>

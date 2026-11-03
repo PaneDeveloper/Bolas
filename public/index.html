@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0d0f1c">
+    <title>Bolinhas</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0d0f1c;
+            --ink: #eef0ff;
+            --muted: #8c91b6;
+            --glass: rgba(255, 255, 255, 0.07);
+            --glass-hover: rgba(255, 255, 255, 0.15);
+            --line: rgba(255, 255, 255, 0.14);
+            --focus: #9aa7ff;
+            --warn: #ffb9a8;
+        }
+        * { box-sizing: border-box; }
+        [hidden] { display: none !important; }
+        html, body { height: 100%; }
+        body {
+            margin: 0; background: var(--bg); color: var(--ink); overflow: hidden;
+            font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        #canvas { position: fixed; inset: 0; display: block; }
+
+        /* Topo */
+        .top {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 5; pointer-events: none;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: calc(16px + env(safe-area-inset-top)) 20px 0;
+        }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 21px; letter-spacing: -0.02em; }
+        .chip-wrap { position: relative; pointer-events: auto; }
+        .chip {
+            display: flex; align-items: center; gap: 8px; cursor: pointer; font: inherit;
+            padding: 7px 10px 7px 12px; border-radius: 999px; font-size: 13px; color: var(--muted);
+            background: var(--glass); border: 1px solid var(--line);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            font-variant-numeric: tabular-nums; transition: background 0.15s;
+        }
+        .chip:hover { background: var(--glass-hover); }
+        .chip:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+        .chip b { color: var(--ink); font-weight: 800; }
+        .chip svg { width: 14px; height: 14px; flex: none; transition: transform 0.15s; }
+        .chip[aria-expanded="true"] svg { transform: rotate(180deg); }
+        .chip-dot { width: 8px; height: 8px; border-radius: 50%; background: linear-gradient(135deg, #7cf0ff, #c58bff); }
+        .chip.heavy .chip-dot { background: #ffb347; }
+
+        /* Menu de quantidade */
+        .menu {
+            position: absolute; top: calc(100% + 8px); right: 0; z-index: 30;
+            width: min(260px, calc(100vw - 32px)); padding: 6px; border-radius: 20px;
+            display: flex; flex-direction: column; gap: 2px;
+            background: rgba(22, 25, 45, 0.92); border: 1px solid var(--line);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        .opt {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+            padding: 10px 12px; border: 0; border-radius: 14px; background: transparent; color: var(--ink);
+            font: inherit; font-size: 14px; text-align: left; cursor: pointer;
+        }
+        .opt:hover { background: rgba(255, 255, 255, 0.1); }
+        .opt:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+        .opt[aria-checked="true"] { background: rgba(154, 167, 255, 0.16); }
+        .opt .label { display: flex; align-items: baseline; gap: 8px; }
+        .opt small { color: var(--muted); font-size: 12px; }
+        .opt .tick { width: 16px; height: 16px; flex: none; opacity: 0; }
+        .opt[aria-checked="true"] .tick { opacity: 1; }
+        .custom-form { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px; }
+        .custom-form input {
+            flex: 1; min-width: 0; padding: 10px 12px; border-radius: 12px; font: inherit; font-size: 14px;
+            color: var(--ink); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--line); outline: 0;
+        }
+        .custom-form input:focus { border-color: rgba(154, 167, 255, 0.8); }
+        .custom-form .apply {
+            flex: none; padding: 0 14px; border: 0; border-radius: 12px; cursor: pointer;
+            font: inherit; font-size: 14px; font-weight: 800; color: #0d0f1c; background: var(--ink);
+        }
+        .custom-form .apply:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+        .custom-warn { flex-basis: 100%; margin: 2px 2px 0; font-size: 12px; line-height: 1.35; color: var(--warn); }
+        .custom-warn.lvl2 { color: #ff9b6b; font-weight: 800; }
+        .custom-warn.lvl3 {
+            color: #ffb4b4; font-weight: 800; padding: 8px 10px; border-radius: 10px;
+            background: rgba(255, 60, 60, 0.16); border: 1px solid rgba(255, 90, 90, 0.7);
+        }
+        .custom-form .apply.danger { background: #ff5c5c; color: #fff; }
+        .chip.extreme .chip-dot { background: #ff4d4d; box-shadow: 0 0 8px #ff4d4d; }
+
+        /* Barra de baixo */
+        .dock-wrap {
+            position: fixed; left: 50%; transform: translateX(-50%); z-index: 6;
+            bottom: calc(18px + env(safe-area-inset-bottom));
+            width: min(660px, calc(100% - 24px));
+        }
+        .dock {
+            display: flex; align-items: flex-end; gap: 6px; padding: 8px; border-radius: 28px;
+            background: var(--glass); border: 1px solid var(--line);
+            backdrop-filter: blur(20px) saturate(1.4); -webkit-backdrop-filter: blur(20px) saturate(1.4);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .dock:focus-within {
+            border-color: rgba(154, 167, 255, 0.7);
+            box-shadow: 0 0 0 4px rgba(154, 167, 255, 0.15), 0 20px 60px rgba(0, 0, 0, 0.45);
+        }
+        .icon-btn {
+            flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
+            border: 0; border-radius: 50%; cursor: pointer; color: var(--ink);
+            background: rgba(255, 255, 255, 0.09); transition: background 0.15s;
+        }
+        .icon-btn:hover { background: var(--glass-hover); }
+        .icon-btn:focus-visible, .photo-pill button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+        .icon-btn svg { width: 22px; height: 22px; }
+        #img-upload { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+        #txt {
+            flex: 1; min-width: 0; max-height: 96px; resize: none; border: 0; outline: 0; background: transparent;
+            color: var(--ink); font: inherit; font-size: 17px; line-height: 1.35; padding: 11px 8px;
+        }
+        #txt::placeholder { color: var(--muted); }
+
+        .photo-pill {
+            flex: none; display: flex; align-items: center; gap: 8px; height: 44px; max-width: 190px;
+            padding: 0 6px 0 4px; border-radius: 22px; background: rgba(255, 255, 255, 0.09);
+        }
+        .photo-pill canvas { width: 36px; height: 36px; border-radius: 50%; flex: none; }
+        .photo-pill span { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .photo-pill button {
+            flex: none; width: 28px; height: 28px; display: grid; place-items: center; padding: 0;
+            border: 0; border-radius: 50%; cursor: pointer; color: var(--ink); background: rgba(255, 255, 255, 0.12);
+        }
+        .photo-pill button:hover { background: var(--glass-hover); }
+        .photo-pill button svg { width: 14px; height: 14px; }
+
+        .meta {
+            display: flex; justify-content: space-between; gap: 12px; padding: 9px 14px 0;
+            font-size: 13px; color: var(--muted);
+        }
+        #status-hint.warn { color: var(--warn); }
+        #counter { font-variant-numeric: tabular-nums; flex: none; }
+
+        /* Arrastar arquivo */
+        .drop {
+            position: fixed; inset: 14px; z-index: 20; display: none; align-items: center; justify-content: center;
+            border: 2px dashed rgba(255, 255, 255, 0.45); border-radius: 32px;
+            background: rgba(13, 15, 28, 0.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+            font-size: 28px; font-weight: 800; letter-spacing: -0.01em; pointer-events: none;
+        }
+        body.dragging .drop { display: flex; }
+
+        @media (max-width: 480px) {
+            .photo-pill span { display: none; }
+            .top { padding-left: 16px; padding-right: 16px; }
+            .chip { font-size: 12px; }
+        }
+        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+    </style>
+</head>
+<body>
+
+<canvas id="canvas"></canvas>
+
+<header class="top">
+    <div class="brand">
+        <svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true">
+            <circle cx="8" cy="17" r="6" fill="#7cf0ff"/>
+            <circle cx="18" cy="9" r="5" fill="#c58bff"/>
+            <circle cx="19" cy="20" r="3.4" fill="#ffd27c"/>
+        </svg>
+        <span>bolinhas</span>
+    </div>
+    <div class="chip-wrap" id="chip-wrap">
+        <button type="button" class="chip" id="chip" aria-haspopup="true" aria-expanded="false" aria-controls="menu"
+                title="Quantidade de bolinhas. Clique pra mudar.">
+            <span class="chip-dot"></span>
+            <b id="chip-mode">Auto</b>
+            <span><span id="chip-count">0</span> bolinhas</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="menu" id="menu" hidden>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="true" data-count="auto">
+                <span class="label">Auto <small>escolhe sozinho</small></span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-count="1000">
+                <span class="label">1.000 bolinhas</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-count="2000">
+                <span class="label">2.000 bolinhas</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-count="5000">
+                <span class="label">5.000 bolinhas</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-count="10000">
+                <span class="label">10.000 bolinhas</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" id="opt-custom" role="menuitemradio" aria-checked="false">
+                <span class="label">Personalizado <small id="custom-value"></small></span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <form class="custom-form" id="custom-form" hidden>
+                <input id="custom-input" type="text" inputmode="numeric" autocomplete="off" placeholder="Quantas bolinhas?" aria-label="Quantidade personalizada de bolinhas">
+                <button type="submit" class="apply">Aplicar</button>
+                <p class="custom-warn" id="custom-warn" role="alert" hidden></p>
+            </form>
+        </div>
+    </div>
+</header>
+
+<main class="dock-wrap">
+    <div class="dock">
+        <button type="button" class="icon-btn" id="upload-btn" aria-label="Carregar foto" title="Carregar foto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-8 8"/>
+            </svg>
+        </button>
+        <input type="file" id="img-upload" accept="image/*" tabindex="-1">
+
+        <textarea id="txt" rows="1" maxlength="150" placeholder="Escreve algo pra virar bolinhas" aria-label="Texto das bolinhas"></textarea>
+
+        <div class="photo-pill" id="photo-pill" hidden>
+            <canvas id="thumb" width="72" height="72"></canvas>
+            <span id="photo-name"></span>
+            <button type="button" id="clear-btn" aria-label="Remover foto" title="Remover foto">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+    </div>
+    <div class="meta">
+        <span id="status-hint" role="status">Escreve algo ou solta uma foto</span>
+        <span id="counter">0/150</span>
+    </div>
+</main>
+
+<div class="drop" id="drop">Solta a foto aqui</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const inputTxt = document.getElementById("txt");
+const statusHint = document.getElementById("status-hint");
+const counterEl = document.getElementById("counter");
+const chipCount = document.getElementById("chip-count");
+const fileInput = document.getElementById("img-upload");
+const photoPill = document.getElementById("photo-pill");
+const photoName = document.getElementById("photo-name");
+const thumb = document.getElementById("thumb");
+
+const TWO_PI = Math.PI * 2;
+const TRAIL = "rgba(13, 15, 28, 0.4)";
+const FONT = '"Bricolage Grotesque", system-ui, sans-serif';
+const nf = new Intl.NumberFormat("pt-BR");
+const slow = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0.3 : 1;
+
+// ---------- MODO AUTOMÁTICO ----------
+// A quantidade de bolinhas ativas é decidida sozinha:
+//  1) pelo conteúdo: quantos pontos o texto/foto realmente tem
+//  2) por um teto que se ajusta à velocidade do aparelho (começa alto e desce se travar)
+const isMobile = Math.min(window.innerWidth, window.innerHeight) < 700 ||
+                 window.matchMedia("(pointer: coarse)").matches;
+const MAX_POOL = isMobile ? 16000 : 40000;   // total de bolinhas que existem
+const MIN_COUNT = 1500;                      // nunca usa menos que isso
+const MIN_CAP = 5000;                        // menor teto que o ajuste de desempenho aceita
+let perfCap = Math.round(MAX_POOL * 0.75);   // teto atual
+let capLimit = MAX_POOL;                     // teto máximo aprendido (desce se o aparelho sofrer)
+let activeCount = 0;                         // quantas bolinhas estão em uso agora
+
+let manualCount = null;   // null = modo automático; número = quantidade escolhida no menu
+let particles = [];
+let isIdle = true;
+let currentImg = null;
+let cachedPoints = null;
+let idleRotation = 0;
+let pulseOffset = 0;
+let lastFill = null;
+
+let tempMessage = null;
+let tempDetail = "";
+let tempTimer = null;
+
+const offCanvas = document.createElement("canvas");
+const offCtx = offCanvas.getContext("2d", { willReadFrequently: true });
+
+// anel de bolinhas coloridas (parado, sem conteúdo)
+const RING = Array.from({ length: 72 }, (_, k) => `hsla(${Math.round((k / 72) * 360)}, 85%, 68%, 0.6)`);
+
+// ---------- FORMAS ----------
+// Cada forma tem um ou mais traços fechados (contorno, olhos...). Cada traço vira uma tabela
+// de pontos espaçados igualmente, e recebe uma fatia das bolinhas proporcional ao seu tamanho.
+// Formas com yUp: true são desenhadas com o y pra cima (como no papel) e viradas na hora.
+const DEG = Math.PI / 180;
+
+// pontos de um arco de elipse; ângulos em graus (y pra cima) e n passos
+function arc(cx, cy, rx, ry, a0, a1, n) {
+    const out = [];
+    for (let i = 0; i <= n; i++) {
+        const a = (a0 + ((a1 - a0) * i) / n) * DEG;
+        out.push([cx + rx * Math.cos(a), cy + ry * Math.sin(a)]);
+    }
+    return out;
+}
+const ellipsePart = (cx, cy, rx, ry) => ({ t1: TWO_PI, f: t => [cx + rx * Math.cos(t), cy + ry * Math.sin(t)] });
+// diferença entre dois ângulos em radianos, de -π a π
+const angDist = (a, b) => ((a - b + 3 * Math.PI) % TWO_PI) - Math.PI;
+
+// corta os cantos de um polígono (Chaikin): pontas ficam arredondadas e as curvas suaves
+function chaikin(pts, iters, closed) {
+    let p = pts;
+    for (let it = 0; it < iters; it++) {
+        const n = p.length, q = [];
+        const last = closed ? n : n - 1;
+        if (!closed) q.push(p[0]);
+        for (let i = 0; i < last; i++) {
+            const a = p[i], b = p[(i + 1) % n];
+            q.push([0.75 * a[0] + 0.25 * b[0], 0.75 * a[1] + 0.25 * b[1]]);
+            q.push([0.25 * a[0] + 0.75 * b[0], 0.25 * a[1] + 0.75 * b[1]]);
+        }
+        if (!closed) q.push(p[n - 1]);
+        p = q;
+    }
+    return p;
+}
+
+const SHAPES = [
+    { name: "círculo", t1: TWO_PI, f: t => [Math.cos(t), Math.sin(t)] },
+    { name: "coração", t1: TWO_PI, f: t => [
+        16 * Math.sin(t) ** 3,
+        -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))] },
+    { name: "rosa", t1: Math.PI, f: t => { const r = Math.cos(5 * t); return [r * Math.cos(t), r * Math.sin(t)]; } },
+    { name: "lissajous", t1: TWO_PI, f: t => [Math.sin(3 * t + Math.PI / 2), Math.sin(2 * t)] },
+    { name: "infinito", t1: TWO_PI, f: t => [Math.cos(t), Math.sin(t) * Math.cos(t)] },
+    { name: "espirógrafo", t1: 6 * Math.PI, f: t => [2 * Math.cos(t) + 5 * Math.cos((2 * t) / 3), 2 * Math.sin(t) - 5 * Math.sin((2 * t) / 3)] },
+    { name: "borboleta", t1: 24 * Math.PI, f: t => {
+        const g = Math.exp(Math.cos(t)) - 2 * Math.cos(4 * t) - Math.sin(t / 12) ** 5;
+        return [Math.sin(t) * g, -Math.cos(t) * g];
+    } },
+    { name: "estrela", t1: 5, f: t => {
+        const k = Math.min(4, Math.floor(t)), u = t - k;
+        const a0 = -Math.PI / 2 + (k * 4 * Math.PI) / 5, a1 = a0 + (4 * Math.PI) / 5;
+        return [Math.cos(a0) * (1 - u) + Math.cos(a1) * u, Math.sin(a0) * (1 - u) + Math.sin(a1) * u];
+    } },
+    { name: "trevo", t1: TWO_PI, f: t => [Math.sin(t) + 2 * Math.sin(2 * t), Math.cos(t) - 2 * Math.cos(2 * t)] },
+    { name: "astroide", t1: TWO_PI, f: t => [Math.cos(t) ** 3, Math.sin(t) ** 3] },
+
+    // ----- animais (desenhos originais) -----
+    { name: "gato", yUp: true, parts: [
+        { poly: [
+            [0, 0.6], [0.337, 0.595], [0.72, 1.05],
+            ...arc(0, -0.1, 0.9, 0.75, 30, -210, 16),
+            [-0.72, 1.05], [-0.337, 0.595]
+        ] },
+        ellipsePart(-0.32, 0.05, 0.09, 0.11), ellipsePart(0.32, 0.05, 0.09, 0.11),
+        ellipsePart(0, -0.2, 0.06, 0.045),
+        // bigodes (traço aberto: as bolinhas vão e voltam)
+        { poly: [[-0.34, -0.2], [-0.82, -0.1]], closed: false, smooth: 0 },
+        { poly: [[-0.34, -0.28], [-0.78, -0.32]], closed: false, smooth: 0 },
+        { poly: [[0.34, -0.2], [0.82, -0.1]], closed: false, smooth: 0 },
+        { poly: [[0.34, -0.28], [0.78, -0.32]], closed: false, smooth: 0 }
+    ] },
+    { name: "peixe", yUp: true, parts: [
+        { poly: [
+            [0.95, 0], [0.6, 0.38], [0.15, 0.55], [-0.25, 0.42], [-0.5, 0.15],
+            [-0.95, 0.45], [-0.78, 0], [-0.95, -0.45],
+            [-0.5, -0.15], [-0.25, -0.42], [0.15, -0.55], [0.6, -0.38]
+        ] },
+        ellipsePart(0.58, 0.1, 0.055, 0.055),
+        { poly: [[0.38, 0.3], [0.3, 0], [0.38, -0.3]], closed: false }
+    ] },
+    { name: "coelho", yUp: true, parts: [
+        { poly: [
+            [0, 0],
+            [0.16, 0.052], [0.17, 0.45], [0.22, 0.85], [0.36, 1.02], [0.5, 0.88], [0.52, 0.45],
+            ...arc(0, -0.45, 0.62, 0.52, 40, -220, 16),
+            [-0.52, 0.45], [-0.5, 0.88], [-0.36, 1.02], [-0.22, 0.85], [-0.17, 0.45], [-0.16, 0.052]
+        ] },
+        ellipsePart(-0.22, -0.35, 0.06, 0.07), ellipsePart(0.22, -0.35, 0.06, 0.07),
+        ellipsePart(0, -0.58, 0.07, 0.05)
+    ] },
+    { name: "baleia", yUp: true, parts: [
+        { poly: [
+            [-0.95, -0.05], [-0.8, 0.28], [-0.4, 0.5], [0.1, 0.5], [0.5, 0.3], [0.75, 0.25],
+            [0.88, 0.45], [0.62, 0.78], [0.9, 0.62], [1.15, 0.8], [0.98, 0.35],
+            [0.82, 0], [0.5, -0.25], [0, -0.45], [-0.5, -0.42], [-0.85, -0.25]
+        ] },
+        ellipsePart(-0.62, 0.1, 0.04, 0.04)
+    ] },
+    { name: "tartaruga", yUp: true, parts: [
+        { t1: TWO_PI, f: t => {
+            const bump = (c, a, w) => a * Math.exp(-((angDist(t, c * DEG) / w) ** 2));
+            const r = 0.6 + bump(90, 0.55, 0.2)                           // cabeça (pescoço comprido)
+                + bump(38, 0.34, 0.3) + bump(142, 0.34, 0.3)              // nadadeiras da frente
+                + bump(218, 0.2, 0.26) + bump(322, 0.2, 0.26)             // nadadeiras de trás
+                + bump(270, 0.12, 0.12);                                  // rabo
+            return [r * Math.cos(t), r * Math.sin(t)];
+        } },
+        ellipsePart(-0.07, 1.0, 0.03, 0.03), ellipsePart(0.07, 1.0, 0.03, 0.03),   // olhos
+        ellipsePart(0, 0, 0.42, 0.42),
+        { poly: [0, 1, 2, 3, 4, 5].map(k => [0.2 * Math.cos((30 + 60 * k) * DEG), 0.2 * Math.sin((30 + 60 * k) * DEG)]), smooth: 0 }
+    ] },
+
+    { name: "cachorro", yUp: true, parts: [
+        ellipsePart(0, 0.05, 0.62, 0.7),
+        { poly: [[-0.5, 0.55], [-0.95, 0.42], [-1.05, -0.2], [-0.8, -0.5], [-0.55, -0.1]] },
+        { poly: [[0.5, 0.55], [0.95, 0.42], [1.05, -0.2], [0.8, -0.5], [0.55, -0.1]] },
+        ellipsePart(-0.22, 0.22, 0.07, 0.085), ellipsePart(0.22, 0.22, 0.07, 0.085),
+        ellipsePart(0, -0.12, 0.14, 0.095),
+        { poly: [[0, -0.22], [0, -0.34]], closed: false, smooth: 0 },
+        { poly: arc(-0.14, -0.34, 0.14, 0.1, 90, -90, 8), closed: false, smooth: 0 },
+        { poly: arc(0.14, -0.34, 0.14, 0.1, 90, 270, 8), closed: false, smooth: 0 }
+    ] },
+    { name: "coruja", yUp: true, parts: [
+        { poly: [[-0.62, 1.0], [-0.3, 0.8], [0, 0.76], [0.3, 0.8], [0.62, 1.0], [0.8, 0.55], [0.82, 0], [0.7, -0.55],
+            [0.35, -0.9], [0, -0.95], [-0.35, -0.9], [-0.7, -0.55], [-0.82, 0], [-0.8, 0.55]] },
+        ellipsePart(-0.33, 0.3, 0.25, 0.25), ellipsePart(0.33, 0.3, 0.25, 0.25),
+        ellipsePart(-0.33, 0.3, 0.09, 0.09), ellipsePart(0.33, 0.3, 0.09, 0.09),
+        { poly: [[-0.09, 0.08], [0.09, 0.08], [0, -0.1]], smooth: 1 },
+        { poly: [[-0.42, -0.32], [0, -0.48], [0.42, -0.32]], closed: false, smooth: 1 },
+        { poly: [[-0.42, -0.58], [0, -0.74], [0.42, -0.58]], closed: false, smooth: 1 }
+    ] },
+    { name: "polvo", yUp: true, parts: [
+        { poly: [...arc(0, 0.25, 0.62, 0.7, 180, 0, 16), [0.55, -0.1], [0.4, -0.35], [-0.4, -0.35], [-0.55, -0.1]] },
+        ...[
+            [[-0.4, -0.3], [-0.7, -0.5], [-0.95, -0.4], [-1.0, -0.15], [-0.85, -0.1]],
+            [[-0.22, -0.35], [-0.4, -0.7], [-0.7, -0.85], [-0.9, -0.75], [-0.88, -0.6]],
+            [[-0.07, -0.35], [-0.12, -0.75], [-0.3, -1.0], [-0.5, -1.0]]
+        ].flatMap(t => [
+            { poly: t, closed: false, smooth: 2 },
+            { poly: t.map(p => [-p[0], p[1]]), closed: false, smooth: 2 }
+        ]),
+        ellipsePart(-0.24, 0.3, 0.1, 0.13), ellipsePart(0.24, 0.3, 0.1, 0.13),
+        { poly: arc(0, 0.08, 0.2, 0.12, 200, 340, 10), closed: false, smooth: 0 }
+    ] },
+    { name: "caracol", yUp: true, parts: [
+        { poly: [[-1.05, -0.55], [1.0, -0.55], [0.5, -0.3], [-0.35, -0.28], [-0.62, 0.05], [-0.66, 0.2],
+            [-0.9, 0.2], [-0.95, -0.1]], smooth: 2 },
+        ellipsePart(0.3, 0.3, 0.62, 0.62),
+        { poly: Array.from({ length: 44 }, (_, i) => {
+            const u = i / 43, a = u * 4.4 * Math.PI;
+            return [0.3 + (0.06 + 0.5 * u) * Math.cos(a), 0.3 + (0.06 + 0.5 * u) * Math.sin(a)];
+        }), closed: false, smooth: 1 },
+        { poly: [[-0.7, 0.18], [-0.74, 0.7]], closed: false, smooth: 0 },
+        { poly: [[-0.84, 0.18], [-1.0, 0.65]], closed: false, smooth: 0 },
+        ellipsePart(-0.74, 0.74, 0.05, 0.05), ellipsePart(-1.02, 0.7, 0.05, 0.05)
+    ] },
+    { name: "elefante", yUp: true, parts: [
+        ellipsePart(0, 0.15, 0.5, 0.62),
+        ...[1, -1].map(sg => ({ poly: [[-0.42, 0.6], [-0.85, 0.85], [-1.1, 0.5], [-1.05, -0.1], [-0.8, -0.35], [-0.48, -0.2]]
+            .map(p => [p[0] * sg, p[1]]) })),
+        { poly: [[-0.16, 0.05], [-0.16, -0.5], [-0.1, -0.85], [0.15, -1.02], [0.5, -1.0], [0.72, -0.8], [0.72, -0.55],
+            [0.58, -0.55], [0.56, -0.72], [0.42, -0.8], [0.22, -0.72], [0.16, -0.5], [0.16, 0.05]], smooth: 2 },
+        ellipsePart(-0.2, 0.3, 0.05, 0.05), ellipsePart(0.2, 0.3, 0.05, 0.05),
+        { poly: [[-0.3, -0.12], [-0.46, -0.5], [-0.34, -0.66]], closed: false, smooth: 2 },   // presas
+        { poly: [[0.3, -0.12], [0.46, -0.5], [0.34, -0.66]], closed: false, smooth: 2 }
+    ] }
+];
+
+const TABLE_N = 4096;
+const TRACE_MIN = 0.35;   // traço pequeno (olho, nariz) conta pelo menos isso, pra aparecer
+
+// polígono -> linha suave (cantos cortados). Traço aberto vai e volta, pra virar um laço.
+function polyLine(part) {
+    const closed = part.closed !== false;
+    const iters = part.smooth !== undefined ? part.smooth : 3;
+    const p = chaikin(part.poly, iters, closed);
+    if (closed) return p.concat([p[0]]);
+    return p.concat(p.slice(1, -1).reverse(), [p[0]]);
+}
+
+// tabela de pontos espaçados por igual ao longo de uma linha (lista de [x, y])
+function resampleLine(line) {
+    const n = line.length;
+    const cum = new Float64Array(n);
+    for (let i = 1; i < n; i++) {
+        cum[i] = cum[i - 1] + Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
+    }
+    const total = cum[n - 1];
+    const table = new Float32Array(TABLE_N * 2);
+    let j = 0;
+    for (let k = 0; k < TABLE_N; k++) {
+        const target = (total * k) / TABLE_N;
+        while (j < n - 2 && cum[j + 1] < target) j++;
+        const seg = cum[j + 1] - cum[j] || 1;
+        const u = Math.min(1, Math.max(0, (target - cum[j]) / seg));
+        table[2 * k] = line[j][0] + (line[j + 1][0] - line[j][0]) * u;
+        table[2 * k + 1] = line[j][1] + (line[j + 1][1] - line[j][1]) * u;
+    }
+    return { table, len: total };
+}
+
+function buildShape(shape) {
+    const M = 12000;
+    const parts = shape.parts || [{ f: shape.f, t1: shape.t1 }];
+    const lines = parts.map(part => {
+        const pts = part.poly ? polyLine(part) : Array.from({ length: M + 1 }, (_, i) => part.f((part.t1 * i) / M));
+        return shape.yUp ? pts.map(p => [p[0], -p[1]]) : pts;
+    });
+
+    // centraliza e encaixa a forma inteira numa caixa de -1 a 1
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    lines.forEach(l => l.forEach(p => {
+        if (p[0] < minX) minX = p[0];
+        if (p[0] > maxX) maxX = p[0];
+        if (p[1] < minY) minY = p[1];
+        if (p[1] > maxY) maxY = p[1];
+    }));
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    const s = Math.max(maxX - minX, maxY - minY) / 2;
+
+    shape.subs = lines.map(l => resampleLine(l.map(p => [(p[0] - cx) / s, (p[1] - cy) / s])));
+    shape.len = Math.max(...shape.subs.map(t => t.len));   // traço mais longo (iguala a velocidade entre formas)
+
+    // fatia das bolinhas de cada traço, proporcional ao comprimento
+    const w = shape.subs.map(t => Math.max(t.len, TRACE_MIN));
+    const sum = w.reduce((x, y) => x + y, 0);
+    shape.share = [0];
+    w.forEach(x => shape.share.push(shape.share[shape.share.length - 1] + x / sum));
+    shape.share[shape.share.length - 1] = 1;
+    return shape;
+}
+
+SHAPES.forEach(buildShape);
+const SHAPE_EVERY = 9000;   // troca de forma a cada 9 s
+let shapeIdx = 0, curShape = SHAPES[0], nextShapeAt = 0, shapeSpeed = 1;
+let shapeX = 0, shapeY = 0;
+
+function idleStatus() {
+    const n = SHAPES[shapeIdx].name;
+    return n.charAt(0).toUpperCase() + n.slice(1) + ": toca na tela pra trocar";
+}
+
+function setShape(i) {
+    shapeIdx = i;
+    curShape = SHAPES[i];
+    nextShapeAt = performance.now() + SHAPE_EVERY;
+    // formas de traço longo giravam mais rápido que o círculo: iguala a velocidade na tela
+    shapeSpeed = Math.min(1.6, Math.max(0.05, TWO_PI / SHAPES[i].len));
+    if (isIdle && !statusHint.classList.contains("warn")) setStatus(idleStatus());
+}
+
+function pickShape() {
+    let i;
+    do { i = Math.floor(Math.random() * SHAPES.length); } while (i === shapeIdx && SHAPES.length > 1);
+    return i;
+}
+
+// ponto de um traço na posição u (0 a 1), em shapeX/shapeY
+function shapeAt(table, u) {
+    const f = u * TABLE_N, i0 = Math.floor(f), t = f - i0;
+    const a = (i0 % TABLE_N) * 2, b = ((i0 + 1) % TABLE_N) * 2;
+    shapeX = table[a] + (table[b] - table[a]) * t;
+    shapeY = table[a + 1] + (table[b + 1] - table[a + 1]) * t;
+}
+
+class Particle {
+    constructor(i) {
+        this.i = i;
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.destX = this.x;
+        this.destY = this.y;
+        this.r = 1.2;
+        this.color = RING[0];
+        this.jx = Math.random() * 2 - 1;           // espalha as bolinhas numa faixa em volta do traço
+        this.jy = Math.random() * 2 - 1;
+        this.ringSize = 1.3 + Math.random() * 1.7; // tamanho da bolinha na forma
+    }
+
+    update() {
+        if (isIdle) {
+            const frac = this.i / activeCount;
+            const subs = curShape.subs, share = curShape.share;
+            let k = 0;
+            while (k < subs.length - 1 && frac >= share[k + 1]) k++;
+            // cada bolinha anda só dentro do seu traço (contorno, olho...)
+            const lf = (frac - share[k]) / (share[k + 1] - share[k]);
+            let u = lf + idleRotation;
+            u -= Math.floor(u);
+            shapeAt(subs[k].table, u);
+            this.destX = ringCx + shapeX * shapeR + this.jx * ringThick;
+            this.destY = ringCy + shapeY * shapeR + this.jy * ringThick;
+
+            let diff = Math.abs(u - pulseU);
+            if (diff > 0.5) diff = 1 - diff;
+
+            if (diff < 0.04) { this.color = "white"; this.r = this.ringSize + 0.9; }
+            else { this.color = RING[(frac * 72) | 0]; this.r = this.ringSize; }
+        }
+
+        const ease = isIdle ? 11 : 16;
+        this.x += (this.destX - this.x) / ease;
+        this.y += (this.destY - this.y) / ease;
+
+        if (this.color !== lastFill) { ctx.fillStyle = this.color; lastFill = this.color; }
+        ctx.fillRect(this.x, this.y, this.r, this.r);
+    }
+}
+
+// Área livre pro desenho: fora o topo (logo) e a barra de baixo
+const UI_TOP = 64, UI_BOTTOM = 124;
+function stage() {
+    const h = Math.max(canvas.height * 0.4, canvas.height - UI_TOP - UI_BOTTOM);
+    return { w: canvas.width, h, cy: UI_TOP + h / 2 };
+}
+
+let ringCx = 0, ringCy = 0, ringR = 0, ringThick = 0, shapeR = 0, pulseU = 0;
+function updateRingGeometry() {
+    const st = stage();
+    ringCx = canvas.width / 2;
+    ringCy = st.cy;
+    ringR = Math.min(st.w, st.h) * 0.4;
+    shapeR = ringR * 0.95;
+    ringThick = Math.max(6, ringR * 0.045);
+}
+
+// animação ao trocar a quantidade: as que sobram voltam pro chip, as novas saem dele
+let leaveFrom = 0, leaveTo = 0, leaveUntil = 0, leaveX = 0, leaveY = 0;
+
+function idleCount() {
+    updateRingGeometry();
+    if (manualCount !== null) return manualCount;
+    return Math.max(MIN_COUNT, Math.min(perfCap, Math.round(ringR * 100)));
+}
+
+function updateChip() { chipCount.textContent = nf.format(activeCount); }
+
+function setStatus(text, warn) {
+    statusHint.textContent = text;
+    statusHint.classList.toggle("warn", !!warn);
+}
+
+// ---------- DESENHO FORA DA TELA ----------
+function wrapText(text, maxW) {
+    const out = [];
+    text.split("\n").forEach(par => {
+        let line = "";
+        par.split(" ").forEach(word => {
+            const test = line ? line + " " + word : word;
+            if (!line || offCtx.measureText(test).width <= maxW) line = test;
+            else { out.push(line); line = word; }
+        });
+        out.push(line);
+    });
+    return out;
+}
+
+function drawTextToOffscreen(text) {
+    const st = stage();
+    const maxW = canvas.width * 0.9;
+    const maxH = st.h * 0.85;
+    let fontSize = Math.min(150, st.h / 4.5);
+    let lines;
+
+    for (;;) {
+        offCtx.font = `800 ${fontSize}px ${FONT}`;
+        lines = wrapText(text, maxW);
+        const widest = Math.max(...lines.map(l => offCtx.measureText(l).width));
+        const totalH = lines.length * fontSize * 1.2;
+        if ((widest <= maxW && totalH <= maxH) || fontSize <= 12) break;
+        fontSize -= 4;
+    }
+
+    offCtx.fillStyle = "white";
+    offCtx.textAlign = "center";
+    offCtx.textBaseline = "middle";
+    const lineH = fontSize * 1.2;
+    const startY = st.cy - (lines.length * lineH) / 2 + lineH / 2;
+    lines.forEach((l, i) => offCtx.fillText(l, canvas.width / 2, startY + i * lineH));
+}
+
+function imgSize(img) {
+    return {
+        w: img.naturalWidth || img.width || 512,
+        h: img.naturalHeight || img.height || 512
+    };
+}
+
+function drawImageToOffscreen() {
+    const { w, h } = imgSize(currentImg);
+    const st = stage();
+    const availW = canvas.width * 0.95, availH = st.h * 0.95;
+    const k = Math.min(availW / w, availH / h);
+    const drawW = w * k, drawH = h * k;
+    offCtx.drawImage(currentImg, (canvas.width - drawW) / 2, st.cy - drawH / 2, drawW, drawH);
+}
+
+// ---------- SINCRONIZAÇÃO ----------
+let syncRevision = 0;
+
+async function handleSync() {
+    const thisSync = ++syncRevision;
+    const text = tempMessage || inputTxt.value.trim();
+    const showImg = currentImg && !tempMessage;
+
+    if (!text && !showImg) {
+        if (!isIdle) setShape(pickShape());   // voltou pro repouso: escolhe outra forma
+        isIdle = true;
+        cachedPoints = null;
+        activeCount = idleCount();
+        updateChip();
+        setStatus(idleStatus());
+        return;
+    }
+
+    isIdle = false;
+    if (tempMessage) setStatus(tempDetail, true);
+    else setStatus(showImg ? "Formando a imagem" : "Formando o texto");
+
+    offCanvas.width = canvas.width;
+    offCanvas.height = canvas.height;
+    offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
+
+    if (showImg) drawImageToOffscreen();
+    else drawTextToOffscreen(text);
+
+    const imgData = offCtx.getImageData(0, 0, canvas.width, canvas.height).data;
+    const step = 2;
+    let points;
+    try {
+        const bytes = new Uint8Array(imgData.buffer, imgData.byteOffset, imgData.byteLength);
+        const response = await fetch("/api/points?width=" + canvas.width + "&height=" + canvas.height + "&step=" + step, {
+            method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: bytes
+        });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        points = (await response.json()).points;
+        if (!Array.isArray(points)) throw new Error("Resposta inválida");
+    } catch (error) {
+        if (thisSync !== syncRevision) return;
+        setStatus("Servidor indisponível, processando neste aparelho");
+        points = [];
+        for (let y = 0; y < canvas.height; y += step) {
+            for (let x = 0; x < canvas.width; x += step) {
+                const i = (y * canvas.width + x) * 4;
+                if (imgData[i + 3] > 120) points.push({ x, y, r: imgData[i], g: imgData[i + 1], b: imgData[i + 2] });
+            }
+        }
+    }
+    if (thisSync !== syncRevision) return;
+
+    if (points.length === 0) {
+        if (!isIdle) setShape(pickShape());
+        isIdle = true;
+        cachedPoints = null;
+        activeCount = idleCount();
+        updateChip();
+        setStatus("Não achei nada pra desenhar nessa imagem", true);
+        return;
+    }
+
+    cachedPoints = points;
+    assign(points);
+}
+
+// Decide quantas bolinhas usar e distribui todas por TODOS os pontos de forma uniforme
+function assign(points) {
+    const n = points.length;
+    // ~2 bolinhas por ponto amostrado deixa a forma cheia; o teto de desempenho limita
+    activeCount = manualCount !== null
+        ? manualCount
+        : Math.max(MIN_COUNT, Math.min(perfCap, Math.round(n * 2.2)));
+    // se faltam bolinhas pra cobrir a área, elas crescem um pouco pra não ficar esburacado
+    const areaPerDot = (n * 4) / activeCount;
+    const baseR = Math.max(0.9, Math.min(3.2, Math.sqrt(areaPerDot) * 0.95));
+    for (let i = 0; i < activeCount; i++) {
+        const p = particles[i];
+        const pt = points[Math.floor((i * n) / activeCount)];
+        p.destX = pt.x + (Math.random() - 0.5) * 2;
+        p.destY = pt.y + (Math.random() - 0.5) * 2;
+        p.color = `rgb(${pt.r}, ${pt.g}, ${pt.b})`;
+        p.r = baseR * (0.75 + Math.random() * 0.5);
+    }
+    updateChip();
+}
+
+function applyCap() {
+    if (isIdle) { activeCount = idleCount(); updateChip(); }
+    else if (cachedPoints) assign(cachedPoints);
+}
+
+let syncQueued = false;
+function queueSync() {
+    if (syncQueued) return;
+    syncQueued = true;
+    requestAnimationFrame(() => { syncQueued = false; handleSync(); });
+}
+
+// Ajuste de desempenho: mede o tempo dos quadros e sobe/desce o teto
+let warmFrames = 0, sumDt = 0, countDt = 0, lockUntil = 0;
+function adapt(dt, now) {
+    if (manualCount !== null) return;   // quantidade escolhida na mão: não mexe
+    if (dt > 100) return;               // aba ficou em segundo plano
+    if (++warmFrames < 60) return;      // ignora o aquecimento
+    sumDt += dt; countDt++;
+    if (countDt < 90) return;
+    const avg = sumDt / countDt;
+    sumDt = 0; countDt = 0;
+
+    if (avg > 22 && perfCap > MIN_CAP) {
+        perfCap = Math.max(MIN_CAP, Math.round(perfCap * 0.8));
+        capLimit = perfCap;             // esse aparelho não aguenta mais que isso
+        applyCap();
+    } else if (avg < 18 && perfCap < capLimit && now > lockUntil) {
+        perfCap = Math.min(capLimit, Math.round(perfCap * 1.15));
+        applyCap();
+    }
+}
+
+// ---------- ARQUIVOS ----------
+function showTempMessage(msg, ms) {
+    tempMessage = msg;
+    clearTimeout(tempTimer);
+    tempTimer = setTimeout(() => { tempMessage = null; handleSync(); }, ms);
+    handleSync();
+}
+
+function loadViaImageElement(file) {
+    return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("decode")); };
+        img.src = url;
+    });
+}
+
+// Não confia no tipo informado pelo navegador (às vezes vem vazio ou diferente):
+// tenta abrir o arquivo de verdade.
+async function decodeImage(file) {
+    try { return await loadViaImageElement(file); }
+    catch (e) {
+        if (window.createImageBitmap) return await createImageBitmap(file);
+        throw e;
+    }
+}
+
+function unsupported(file) {
+    const ext = file.name && file.name.includes(".") ? "." + file.name.split(".").pop().toLowerCase() : "";
+    const kind = file.type || ext || "tipo desconhecido";
+    tempDetail = `Não consegui abrir ${file.name || "o arquivo"} (${kind}). Use PNG, JPG, GIF, WebP, SVG ou ICO.`;
+    showTempMessage("Arquivo não suportado 💀", 15000);
+}
+
+function showPhotoPill(img, name) {
+    const s = thumb.width, tctx = thumb.getContext("2d");
+    const { w, h } = imgSize(img);
+    const k = Math.max(s / w, s / h);
+    tctx.clearRect(0, 0, s, s);
+    tctx.drawImage(img, (s - w * k) / 2, (s - h * k) / 2, w * k, h * k);
+    photoName.textContent = name || "foto";
+    photoPill.hidden = false;
+}
+
+async function handleFile(file) {
+    if (!file) return;
+    const type = file.type || "";
+    if (type.startsWith("video/") || type.startsWith("audio/")) { unsupported(file); return; }
+    try {
+        const img = await decodeImage(file);
+        clearTimeout(tempTimer);
+        tempMessage = null;
+        currentImg = img;
+        showPhotoPill(img, file.name);
+        handleSync();
+    } catch (e) {
+        unsupported(file);
+    }
+}
+
+function dismissTempMessage() {
+    clearTimeout(tempTimer);
+    tempMessage = null;
+}
+
+function clearMedia() {
+    dismissTempMessage();
+    currentImg = null;
+    fileInput.value = "";
+    photoPill.hidden = true;
+    handleSync();
+}
+
+document.getElementById("upload-btn").onclick = () => fileInput.click();
+fileInput.onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; handleFile(f); };
+document.getElementById("clear-btn").onclick = clearMedia;
+
+// arrastar e soltar
+let dragDepth = 0;
+const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+window.addEventListener("dragenter", (e) => { if (!hasFiles(e)) return; e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
+window.addEventListener("dragover", (e) => { if (hasFiles(e)) e.preventDefault(); });
+window.addEventListener("dragleave", (e) => {
+    if (!hasFiles(e)) return;
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) document.body.classList.remove("dragging");
+});
+window.addEventListener("drop", (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth = 0;
+    document.body.classList.remove("dragging");
+    handleFile(e.dataTransfer.files[0]);
+});
+
+// colar imagem (Ctrl+V)
+window.addEventListener("paste", (e) => {
+    const item = Array.from((e.clipboardData && e.clipboardData.items) || []).find(it => it.kind === "file");
+    if (item) { e.preventDefault(); handleFile(item.getAsFile()); }
+});
+
+// ---------- TEXTO ----------
+function growInput() {
+    inputTxt.style.height = "auto";
+    inputTxt.style.height = Math.min(inputTxt.scrollHeight, 96) + "px";
+}
+inputTxt.addEventListener("input", () => {
+    dismissTempMessage();   // quem começa a digitar já seguiu em frente
+    growInput();
+    counterEl.textContent = inputTxt.value.length + "/150";
+    queueSync();
+});
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    queueSync();
+}
+window.addEventListener("resize", resize);
+
+// ---------- LOOP ----------
+let lastT = performance.now();
+// Trava de segurança: no modo manual pesado, se vários quadros seguidos levarem mais de 1,5 s,
+// a página está praticamente congelada. Volta pro Auto sozinha.
+let slowFrames = 0;
+function rescue() {
+    slowFrames = 0;
+    setCount(null);
+    setStatus("Estava pesado demais, voltei pro Auto", true);
+    setTimeout(() => {
+        if (statusHint.classList.contains("warn") && !tempMessage) {
+            setStatus(isIdle ? idleStatus() : (currentImg ? "Formando a imagem" : "Formando o texto"));
+        }
+    }, 8000);
+}
+
+function loop(now) {
+    const dt = now - lastT;
+    lastT = now;
+    adapt(dt, now);
+
+    if (manualCount !== null && manualCount > WARN_ABOVE && dt > 1500 && dt < 15000) {
+        if (++slowFrames >= 3) rescue();
+    } else if (dt < 1000) {
+        slowFrames = 0;
+    }
+
+    ctx.fillStyle = TRAIL;
+    lastFill = TRAIL;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (isIdle) {
+        updateRingGeometry();
+        const k = Math.min(dt, 50) / 16.667;
+        idleRotation += (0.015 / TWO_PI) * k * slow * shapeSpeed;   // em voltas (0 a 1) na curva
+        pulseOffset += (0.045 / TWO_PI) * k * slow;
+        pulseU = pulseOffset - Math.floor(pulseOffset);
+        if (now > nextShapeAt) setShape(pickShape());
+    }
+
+    for (let i = 0; i < activeCount; i++) particles[i].update();
+
+    if (now < leaveUntil) {
+        for (let i = leaveFrom; i < leaveTo; i++) {
+            const p = particles[i];
+            p.x += (leaveX - p.x) / 7;
+            p.y += (leaveY - p.y) / 7;
+            if (p.color !== lastFill) { ctx.fillStyle = p.color; lastFill = p.color; }
+            ctx.fillRect(p.x, p.y, p.r, p.r);
+        }
+    }
+    requestAnimationFrame(loop);
+}
+
+// ---------- MENU DE QUANTIDADE ----------
+const PRESETS = [1000, 2000, 5000, 10000];
+const WARN_ABOVE = 10000, DANGER_ABOVE = 200000, CUSTOM_MIN = 100, CUSTOM_MAX = 500000;
+let armed = false;   // acima de DANGER_ABOVE o primeiro "Aplicar" só pede confirmação
+const chipEl = document.getElementById("chip");
+const chipWrap = document.getElementById("chip-wrap");
+const chipMode = document.getElementById("chip-mode");
+const menu = document.getElementById("menu");
+const optCustom = document.getElementById("opt-custom");
+const customValue = document.getElementById("custom-value");
+const customForm = document.getElementById("custom-form");
+const customInput = document.getElementById("custom-input");
+const customWarn = document.getElementById("custom-warn");
+
+function ensurePool(n) {
+    while (particles.length < n) particles.push(new Particle(particles.length));
+}
+
+function chipCenter() {
+    const r = chipEl.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };}
+
+// value: null = automático
+function setCount(value) {
+    const prev = activeCount;
+    const wasHeavy = manualCount !== null && manualCount > WARN_ABOVE;
+    leaveUntil = 0;
+    manualCount = value;
+    const heavy = manualCount !== null && manualCount > WARN_ABOVE;
+    if (value !== null) ensurePool(value);
+    warmFrames = 0; sumDt = 0; countDt = 0;
+    if (isIdle) activeCount = idleCount();
+    else if (cachedPoints) assign(cachedPoints);
+    updateChip();
+    updateMenuState();
+
+    // animação: bolinhas novas saem do chip; as que sobram voltam pra ele.
+    // Acima de 10.000 (entrando ou saindo) fica desligada: já é pesado o bastante.
+    if (slow === 1 && !heavy && !wasHeavy && activeCount !== prev) {
+        const c = chipCenter();
+        if (activeCount > prev) {
+            for (let i = prev; i < activeCount; i++) {
+                particles[i].x = c.x + (Math.random() - 0.5) * 16;
+                particles[i].y = c.y + (Math.random() - 0.5) * 16;
+            }
+        } else {
+            leaveFrom = activeCount;
+            leaveTo = prev;
+            leaveX = c.x;
+            leaveY = c.y;
+            leaveUntil = performance.now() + 900;
+        }
+    }
+}
+
+function updateMenuState() {
+    const isCustom = manualCount !== null && !PRESETS.includes(manualCount);
+    menu.querySelectorAll("[data-count]").forEach(btn => {
+        const v = btn.dataset.count;
+        const on = v === "auto" ? manualCount === null : Number(v) === manualCount;
+        btn.setAttribute("aria-checked", String(on));
+    });
+    optCustom.setAttribute("aria-checked", String(isCustom));
+    customValue.textContent = isCustom ? nf.format(manualCount) : "";
+    chipMode.textContent = manualCount === null ? "Auto" : "Manual";
+    chipEl.classList.toggle("heavy", manualCount !== null && manualCount > WARN_ABOVE);
+    chipEl.classList.toggle("extreme", manualCount !== null && manualCount > 100000);
+}
+
+function parseCustom() {
+    const digits = customInput.value.replace(/\D/g, "");   // aceita "15000" e "15.000"
+    return digits ? parseInt(digits, 10) : NaN;
+}
+
+const applyBtn = customForm.querySelector(".apply");
+
+function showWarn(msg, level) {
+    customWarn.textContent = msg;
+    customWarn.hidden = !msg;
+    customWarn.className = "custom-warn" + (level > 1 ? " lvl" + level : "");
+}
+
+function checkCustom() {
+    armed = false;
+    applyBtn.textContent = "Aplicar";
+    applyBtn.classList.remove("danger");
+    const n = parseCustom();
+    if (n > CUSTOM_MAX) return showWarn(`O máximo é ${nf.format(CUSTOM_MAX)} bolinhas.`, 1);
+    if (n > DANGER_ABOVE) {
+        return showWarn(`🚨 PERIGO: ${nf.format(n)} bolinhas pode congelar esta aba por vários segundos e travar o seu aparelho. ` +
+            `Salve o que estiver aberto em outras abas antes. Se a página congelar, ela volta pro Auto sozinha.`, 3);
+    }
+    if (n > 50000) {
+        return showWarn(`⚠️ Cuidado: ${nf.format(n)} bolinhas é MUITO. Em PC fraco vai virar um slideshow e o ventilador vai gritar.`, 2);
+    }
+    if (n > WARN_ABOVE) {
+        return showWarn(`Acima de ${nf.format(WARN_ABOVE)} bolinhas o seu aparelho pode não aguentar e a página pode travar.`, 1);
+    }
+    showWarn("", 1);
+}
+
+function showCustomForm(show) {
+    customForm.hidden = !show;
+    optCustom.hidden = show;
+    customWarn.hidden = true;
+    if (show) {
+        customInput.value = manualCount !== null && !PRESETS.includes(manualCount) ? String(manualCount) : "";
+        customInput.focus();
+        customInput.select();   // o que for digitado substitui o valor anterior
+        checkCustom();
+    }
+}
+
+function openMenu() {
+    menu.hidden = false;
+    chipEl.setAttribute("aria-expanded", "true");
+}
+
+function closeMenu(refocus) {
+    menu.hidden = true;
+    chipEl.setAttribute("aria-expanded", "false");
+    showCustomForm(false);
+    if (refocus) chipEl.focus();
+}
+
+chipEl.addEventListener("click", () => (menu.hidden ? openMenu() : closeMenu()));
+menu.querySelectorAll("[data-count]").forEach(btn => btn.addEventListener("click", () => {
+    setCount(btn.dataset.count === "auto" ? null : Number(btn.dataset.count));
+    closeMenu(true);
+}));
+optCustom.addEventListener("click", () => showCustomForm(true));
+customInput.addEventListener("input", checkCustom);
+customForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const n = parseCustom();
+    if (!(n >= CUSTOM_MIN)) {
+        showWarn(`Digite um número a partir de ${CUSTOM_MIN}.`, 1);
+        customInput.focus();
+        return;
+    }
+    // acima de 200 mil: o primeiro clique só arma o botão, o segundo aplica
+    if (Math.min(n, CUSTOM_MAX) > DANGER_ABOVE && !armed) {
+        armed = true;
+        applyBtn.textContent = "Aplicar mesmo assim";
+        applyBtn.classList.add("danger");
+        return;
+    }
+    setCount(Math.min(n, CUSTOM_MAX));
+    closeMenu(true);
+});
+document.addEventListener("pointerdown", (e) => { if (!menu.hidden && !chipWrap.contains(e.target)) closeMenu(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) closeMenu(true); });
+
+// tocar na tela (fora da interface) troca a forma do modo parado
+let ignoreTap = false;
+canvas.addEventListener("pointerdown", () => { ignoreTap = !menu.hidden; });   // clique que só fecha o menu não conta
+canvas.addEventListener("pointerup", () => {
+    if (ignoreTap) { ignoreTap = false; return; }
+    if (isIdle && !tempMessage) setShape(pickShape());
+});
+
+// ---------- INÍCIO ----------
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+for (let i = 0; i < MAX_POOL; i++) particles.push(new Particle(i));
+setShape(Math.floor(Math.random() * SHAPES.length));
+handleSync();
+requestAnimationFrame(loop);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(queueSync);
+</script>
+</body>
+</html>

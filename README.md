@@ -1,96 +1,37 @@
-# 🌐 Bolinhas Stats Lobby
+# Bolinhas distribuído
 
-Um lobby multiplayer onde texto vira arte feita de partículas em tempo real.
+Versão baseada no `bolas.html` enviado. A animação continua no navegador; a extração dos pixels é processada pelo servidor Node.js.
 
-> Digita.  
-> As bolinhas se organizam.  
-> A galera pode assistir.
+## Arquitetura
+- Navegador: desenha texto/imagem no canvas e envia o buffer RGBA ao servidor.
+- Servidor: divide a imagem em faixas e coordena o processamento.
+- `worker_threads`: processamento paralelo na máquina hospedeira.
+- Workers remotos opcionais: navegadores em `/worker.html` recebem faixas via WebSocket.
+- Renderização por frame continua local. Não transmitimos posições de partículas em tempo real.
 
----
+## Executar
+Requer Node.js 20+.
+```bash
+npm install
+npm start
+```
+Abra http://localhost:3000.
 
-## 🚀 Sobre o Projeto
+## Workers remotos
+Configure um token no servidor:
+```bash
+WORKER_TOKEN="token-longo" npm start
+```
+Em máquinas autorizadas, abra http://IP-DO-SERVIDOR:3000/worker.html, informe o token e conecte. Para HTTPS, o proxy precisa encaminhar WebSocket em `/compute`. Não exponha workers sem token em redes públicas: os pixels enviados serão compartilhados com workers conectados.
 
-O **Bolinhas Stats Lobby** é um experimento visual multiplayer baseado em P2P (Peer-to-Peer).
+## Variáveis
+- `PORT`: porta HTTP (3000)
+- `WORKER_THREADS`: threads locais (padrão: núcleos disponíveis - 1, máximo 16)
+- `WORKER_TOKEN`: token para workers remotos
+- `MAX_IMAGE_BYTES`: limite do payload (24 MiB)
 
-Cada jogador possui um canvas privado onde pode escrever algo.  
-Milhares de partículas se organizam para formar o texto digitado.
+## API
+- `GET /api/status`
+- `POST /api/points?width=...&height=...&step=2` com RGBA binário
 
-Outros jogadores na mesma sala podem:
-- Ver seu nome na lista
-- Clicar no seu perfil
-- Assistir sua criação em tempo real
-
-Sem servidor salvando dados.  
-Sem banco de dados.  
-Só navegador conversando com navegador.
-
----
-
-## 🛠️ Tecnologias Utilizadas
-
-- **HTML5 Canvas** — Renderização de até 3.000 partículas
-- **PeerJS (WebRTC)** — Conexão direta entre navegadores
-- **Vanilla JavaScript** — Motor de física e lógica multiplayer
-
----
-
-## 🎮 Como Usar
-
-### 1️⃣ Entrar na Sala
-- Escolha um Nick
-- Defina um ID de Sala (ou gere um aleatório)
-
-### 2️⃣ Convidar Amigos
-- Envie o ID da Sala
-- Eles precisam usar o mesmo ID para entrar
-
-### 3️⃣ Interagir
-- Digite no campo central para mover as bolinhas
-- Use o Chat Global
-- Clique nos nomes em **Players Online** para abrir o canvas deles
-
----
-
-## 📡 Arquitetura de Rede
-
-Como o projeto é hospedado no GitHub Pages (ambiente estático), ele utiliza:
-
-- 🔗 Arquitetura Mesh (P2P)
-- 🔒 Sem armazenamento de dados
-- ♻️ Sessão reinicia ao recarregar a página
-
-O que você escreve é privado até alguém abrir seu perfil.
-
----
-
-## 🧪 Curiosidade Técnica
-
-O sistema de partículas usa:
-
-- Vetores
-- Aceleração
-- Distância euclidiana
-- Interpolação suave
-
-Tudo calculado em tempo real para que as bolinhas:
-
-- Não colidam
-- Se organizem corretamente
-- Formem o texto de maneira fluida
-
-Mas você só precisa digitar e curtir o efeito 😉
-
----
-
-## 💡 Objetivo do Projeto
-
-Explorar:
-
-- WebRTC na prática
-- Renderização otimizada em Canvas
-- Multiplayer sem backend
-- Experimentos visuais interativos
-
----
-
-⭐ Projeto criado para experimentação e diversão.
+Se o servidor não responder, a página faz fallback para processamento local.
