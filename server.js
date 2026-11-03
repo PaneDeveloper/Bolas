@@ -51,6 +51,16 @@ const pool = new Pool(threads);
 const remoteWorkers = new Set();
 let remoteId = 0;
 let activeRequests = 0;
+function identifyDevice(ua = "") {
+  const value = ua.toLowerCase();
+  if (/smart-tv|smarttv|hbbtv|web0s|webos|tizen|googletv|appletv|aftb|aftt| roku\//i.test(value)) return { type: "tv", label: "TV", icon: "tv" };
+  if (/ipad|tablet|playbook|silk(?!.*mobile)/i.test(value) || (/android/i.test(value) && !/mobile/i.test(value))) {
+    return { type: /android/i.test(value) ? "android-tablet" : "tablet", label: /android/i.test(value) ? "Tablet Android" : "Tablet", icon: "tablet" };
+  }
+  if (/android/i.test(value)) return { type: "android-phone", label: "Celular Android", icon: "smartphone" };
+  if (/iphone|ipod|mobile/i.test(value)) return { type: "phone", label: "Celular", icon: "smartphone" };
+  return { type: "pc", label: "PC", icon: "computer" };
+}
 const reply = (res, status, value) => { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(value)); };
 
 async function readBody(req) {
@@ -83,7 +93,7 @@ async function processChunk(buffer, width, height, step, yStart, yEnd) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
-  if (req.method === "GET" && url.pathname === "/api/status") return reply(res, 200, { ok: true, threads, remoteWorkers: [...remoteWorkers].map(worker => ({ id: worker.id, busy: worker.busy, connected: worker.ws.readyState === 1 })), local: pool.status(), activeRequests });
+  if (req.method === "GET" && url.pathname === "/api/status") return reply(res, 200, { ok: true, threads, remoteWorkers: [...remoteWorkers].map(worker => ({ id: worker.id, busy: worker.busy, connected: worker.ws.readyState === 1, device: worker.device })), local: pool.status(), activeRequests });
   if (req.method === "POST" && url.pathname === "/api/points") {
     activeRequests++;
     try {
@@ -115,7 +125,7 @@ server.on("upgrade", (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
 wss.on("connection", ws => {
-  const worker = { id: ++remoteId, ws, busy: false, pending: new Map(), authenticated: false };
+  const worker = { id: ++remoteId, ws, busy: false, pending: new Map(), authenticated: false, device: identifyDevice(req.headers["user-agent"] || "") };
   ws.on("message", raw => {
     let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
     if (!worker.authenticated) {
