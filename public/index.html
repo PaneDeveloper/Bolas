@@ -146,6 +146,27 @@
         #status-hint.warn { color: var(--warn); }
         #counter { font-variant-numeric: tabular-nums; flex: none; }
 
+
+        /* Painel de processamento */
+        .worker-panel {
+            position: fixed; left: 50%; transform: translateX(-50%);
+            bottom: calc(112px + env(safe-area-inset-bottom)); z-index: 4;
+            width: min(660px, calc(100% - 24px)); padding: 10px 14px;
+            border: 1px solid var(--line); border-radius: 16px;
+            background: rgba(22, 25, 45, 0.72); backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px); color: var(--muted);
+            font-size: 12px; display: flex; flex-wrap: wrap; gap: 7px 14px;
+            pointer-events: none;
+        }
+        .worker-panel[hidden] { display: none !important; }
+        .worker-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .worker-dot { width: 7px; height: 7px; border-radius: 50%; background: #777b91; }
+        .worker-item.busy .worker-dot { background: #65e6a3; box-shadow: 0 0 8px rgba(101,230,163,.65); }
+        .worker-item.offline .worker-dot { background: #ff7777; }
+        @media (max-width: 480px) {
+            .worker-panel { bottom: calc(108px + env(safe-area-inset-bottom)); font-size: 11px; }
+        }
+
         /* Arrastar arquivo */
         .drop {
             position: fixed; inset: 14px; z-index: 20; display: none; align-items: center; justify-content: center;
@@ -166,6 +187,7 @@
 <body>
 
 <canvas id="canvas"></canvas>
+<div class="worker-panel" id="worker-panel" aria-live="polite" hidden></div>
 
 <header class="top">
     <div class="brand">
@@ -694,6 +716,42 @@ function drawImageToOffscreen() {
     const drawW = w * k, drawH = h * k;
     offCtx.drawImage(currentImg, (canvas.width - drawW) / 2, st.cy - drawH / 2, drawW, drawH);
 }
+
+
+// ---------- STATUS DOS WORKERS ----------
+const workerPanel = document.getElementById("worker-panel");
+let workerPollTimer = null;
+async function refreshWorkerStatus() {
+    try {
+        const response = await fetch("/api/status", { cache: "no-store" });
+        if (!response.ok) throw new Error("status");
+        const data = await response.json();
+        const items = [];
+        const remote = Array.isArray(data.remoteWorkers) ? data.remoteWorkers : [];
+        remote.forEach(worker => items.push({
+            name: "Worker " + worker.id,
+            state: !worker.connected ? "Desconectado" : worker.busy ? "Trabalhando..." : "Ocioso",
+            kind: !worker.connected ? "offline" : worker.busy ? "busy" : ""
+        }));
+        const local = data.local || {};
+        for (let i = 0; i < (local.total || 0); i++) {
+            const busy = i < (local.busy || 0);
+            items.push({ name: "Local " + (i + 1), state: busy ? "Trabalhando..." : "Ocioso", kind: busy ? "busy" : "" });
+        }
+        if (local.queued > 0) items.push({ name: "Fila", state: local.queued + " tarefa(s)", kind: "" });
+        if (!items.length) items.push({ name: "Workers", state: "Aguardando conexão", kind: "" });
+        workerPanel.innerHTML = items.map(item =>
+            '<span class="worker-item ' + item.kind + '"><i class="worker-dot"></i><b>' +
+            item.name + '</b> ' + item.state + '</span>'
+        ).join("");
+        workerPanel.hidden = false;
+    } catch {
+        workerPanel.innerHTML = '<span class="worker-item offline"><i class="worker-dot"></i>Status indisponível</span>';
+        workerPanel.hidden = false;
+    }
+}
+refreshWorkerStatus();
+workerPollTimer = setInterval(refreshWorkerStatus, 800);
 
 // ---------- SINCRONIZAÇÃO ----------
 let syncRevision = 0;
