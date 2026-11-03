@@ -7,7 +7,7 @@
     <title>Bolinhas</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">\n    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #0d0f1c;
@@ -159,7 +159,7 @@
             pointer-events: none;
         }
         .worker-panel[hidden] { display: none !important; }
-        .worker-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .worker-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }\n        .worker-device { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 17px; line-height: 1; display: inline-block; white-space: nowrap; direction: ltr; -webkit-font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; vertical-align: middle; color: #c5caff; }
         .worker-dot { width: 7px; height: 7px; border-radius: 50%; background: #777b91; }
         .worker-item.busy .worker-dot { background: #65e6a3; box-shadow: 0 0 8px rgba(101,230,163,.65); }
         .worker-item.offline .worker-dot { background: #ff7777; }
@@ -728,11 +728,16 @@ async function refreshWorkerStatus() {
         const data = await response.json();
         const items = [];
         const remote = Array.isArray(data.remoteWorkers) ? data.remoteWorkers : [];
-        remote.forEach(worker => items.push({
-            name: "Worker " + worker.id,
-            state: !worker.connected ? "Desconectado" : worker.busy ? "Trabalhando..." : "Ocioso",
-            kind: !worker.connected ? "offline" : worker.busy ? "busy" : ""
-        }));
+        remote.forEach(worker => {
+            const device = worker.device || { label: "Dispositivo", icon: "devices" };
+            items.push({
+                name: "Worker " + worker.id,
+                device: device.icon,
+                deviceLabel: device.label,
+                state: !worker.connected ? "Desconectado" : worker.busy ? "Trabalhando..." : "Ocioso",
+                kind: !worker.connected ? "offline" : worker.busy ? "busy" : ""
+            });
+        });
         const local = data.local || {};
         for (let i = 0; i < (local.total || 0); i++) {
             const busy = i < (local.busy || 0);
@@ -741,8 +746,9 @@ async function refreshWorkerStatus() {
         if (local.queued > 0) items.push({ name: "Fila", state: local.queued + " tarefa(s)", kind: "" });
         if (!items.length) items.push({ name: "Workers", state: "Aguardando conexão", kind: "" });
         workerPanel.innerHTML = items.map(item =>
-            '<span class="worker-item ' + item.kind + '"><i class="worker-dot"></i><b>' +
-            item.name + '</b> ' + item.state + '</span>'
+            '<span class="worker-item ' + item.kind + '">' +
+            (item.device ? '<span class="worker-device" title="' + item.deviceLabel + '">' + item.device + '</span>' : '<i class="worker-dot"></i>') +
+            '<b>' + item.name + '</b> ' + item.state + '</span>'
         ).join("");
         workerPanel.hidden = false;
     } catch {
