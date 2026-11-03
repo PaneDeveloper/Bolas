@@ -43,12 +43,14 @@ class Pool {
       slot.worker.postMessage({ buffer: copy, width: task.width, height: task.height, step: task.step, yStart: task.yStart, yEnd: task.yEnd }, [copy]);
     }
   }
+  status() { return { busy: this.slots.filter(slot => slot.busy).length, total: this.slots.length, queued: this.queue.length }; }
   close() { for (const slot of this.slots) slot.worker.terminate(); }
 }
 
 const pool = new Pool(threads);
 const remoteWorkers = new Set();
 let remoteId = 0;
+let activeRequests = 0;
 const reply = (res, status, value) => { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(value)); };
 
 async function readBody(req) {
@@ -81,8 +83,9 @@ async function processChunk(buffer, width, height, step, yStart, yEnd) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, "http://localhost");
-  if (req.method === "GET" && url.pathname === "/api/status") return reply(res, 200, { ok: true, threads, remoteWorkers: remoteWorkers.size });
+  if (req.method === "GET" && url.pathname === "/api/status") return reply(res, 200, { ok: true, threads, remoteWorkers: [...remoteWorkers].map(worker => ({ id: worker.id, busy: worker.busy, connected: worker.ws.readyState === 1 })), local: pool.status(), activeRequests });
   if (req.method === "POST" && url.pathname === "/api/points") {
+    activeRequests++;
     try {
       const width = Number(url.searchParams.get("width")), height = Number(url.searchParams.get("height")), step = Number(url.searchParams.get("step") || 2);
       if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1 || width * height > 16000000 || step < 1 || step > 16) return reply(res, 400, { error: "Dimensões inválidas" });
@@ -93,6 +96,7 @@ const server = http.createServer(async (req, res) => {
       const points = (await Promise.all(jobs)).flat().sort((a, b) => a.y - b.y || a.x - b.x);
       return reply(res, 200, { points, workers: remoteWorkers.size || threads });
     } catch (err) { return reply(res, err.status || 500, { error: err.message }); }
+    finally { activeRequests = Math.max(0, activeRequests - 1); }
   }
   if (req.method !== "GET" && req.method !== "HEAD") return reply(res, 405, { error: "Método não permitido" });
   let pathname = decodeURIComponent(url.pathname); if (pathname === "/") pathname = "/index.html";
