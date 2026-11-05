@@ -102,7 +102,8 @@ const server = http.createServer(async (req, res) => {
       const data = await readBody(req);
       if (data.length !== width * height * 4) return reply(res, 400, { error: "Buffer RGBA inválido" });
       const rows = Math.max(32, Math.ceil(height / threads)), jobs = [];
-      const useRemote = url.searchParams.get("distributed") !== "0";\n      for (let y = 0; y < height; y += rows) jobs.push(processChunk(data, width, height, step, y, Math.min(height, y + rows), useRemote));
+      const useRemote = url.searchParams.get("distributed") !== "0";
+      for (let y = 0; y < height; y += rows) jobs.push(processChunk(data, width, height, step, y, Math.min(height, y + rows), useRemote));
       const points = (await Promise.all(jobs)).flat().sort((a, b) => a.y - b.y || a.x - b.x);
       return reply(res, 200, { points, workers: remoteWorkers.size || threads });
     } catch (err) { return reply(res, err.status || 500, { error: err.message }); }
@@ -124,7 +125,7 @@ server.on("upgrade", (req, socket, head) => {
   if (new URL(req.url, "http://localhost").pathname !== "/compute") return socket.destroy();
   wss.handleUpgrade(req, socket, head, ws => wss.emit("connection", ws, req));
 });
-wss.on("connection", ws => {
+wss.on("connection", (ws, req) => {
   const worker = { id: ++remoteId, ws, busy: false, pending: new Map(), authenticated: false, device: identifyDevice(req.headers["user-agent"] || "") };
   ws.on("message", raw => {
     let msg; try { msg = JSON.parse(raw.toString()); } catch { return; }
