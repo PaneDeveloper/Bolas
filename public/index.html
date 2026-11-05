@@ -7,7 +7,8 @@
     <title>Bolinhas</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">\n    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg: #0d0f1c;
@@ -27,7 +28,7 @@
             font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
             -webkit-font-smoothing: antialiased;
         }
-        #canvas { position: fixed; inset: 0; display: block; }
+        #canvas { position: fixed; inset: 0; display: block; touch-action: none; }
 
         /* Topo */
         .top {
@@ -36,7 +37,10 @@
             padding: calc(16px + env(safe-area-inset-top)) 20px 0;
         }
         .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 21px; letter-spacing: -0.02em; }
+        .chips { display: flex; align-items: center; gap: 8px; }
         .chip-wrap { position: relative; pointer-events: auto; }
+        .chip .bolt { width: 13px; height: 13px; color: #ffd27c; }
+        .chip.fast .bolt { color: #ff9b6b; }
         .chip {
             display: flex; align-items: center; gap: 8px; cursor: pointer; font: inherit;
             padding: 7px 10px 7px 12px; border-radius: 999px; font-size: 13px; color: var(--muted);
@@ -147,7 +151,6 @@
         #counter { font-variant-numeric: tabular-nums; flex: none; }
 
 
-
         .dist-toggle {
             display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px;
             border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
@@ -161,7 +164,7 @@
         .dist-toggle[aria-pressed="true"] .switch::after { transform: translateX(12px); }
         .dist-toggle:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
         @media (max-width: 480px) { .dist-toggle { font-size: 0; gap: 5px; } .dist-toggle .switch { flex:none; } }
-\n        /* Painel de processamento */
+
         .worker-panel {
             position: fixed; left: 50%; transform: translateX(-50%);
             bottom: calc(112px + env(safe-area-inset-bottom)); z-index: 4;
@@ -173,7 +176,8 @@
             pointer-events: none;
         }
         .worker-panel[hidden] { display: none !important; }
-        .worker-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }\n        .worker-device { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 17px; line-height: 1; display: inline-block; white-space: nowrap; direction: ltr; -webkit-font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; vertical-align: middle; color: #c5caff; }
+        .worker-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+        .worker-device { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 17px; line-height: 1; display: inline-block; white-space: nowrap; direction: ltr; -webkit-font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; vertical-align: middle; color: #c5caff; }
         .worker-dot { width: 7px; height: 7px; border-radius: 50%; background: #777b91; }
         .worker-item.busy .worker-dot { background: #65e6a3; box-shadow: 0 0 8px rgba(101,230,163,.65); }
         .worker-item.offline .worker-dot { background: #ff7777; }
@@ -193,6 +197,9 @@
         @media (max-width: 480px) {
             .photo-pill span { display: none; }
             .top { padding-left: 16px; padding-right: 16px; }
+            .brand span { display: none; }
+            .speed-label { display: none; }
+            .chips { gap: 6px; }
             .chip { font-size: 12px; }
         }
         @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
@@ -212,12 +219,55 @@
         </svg>
         <span>bolinhas</span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;pointer-events:auto">\n    <button type="button" class="dist-toggle" id="dist-toggle" aria-pressed="true" title="Ativar ou desativar workers remotos">Distribuído <span class="switch" aria-hidden="true"></span></button>\n    <div class="chip-wrap" id="chip-wrap">
+    <div class="chips">
+        <button type="button" class="dist-toggle" id="dist-toggle" aria-pressed="true" title="Ativar ou desativar workers remotos">Distribuído <span class="switch" aria-hidden="true"></span></button>
+    <div class="chip-wrap" id="speed-wrap">
+        <button type="button" class="chip" id="speed-chip" aria-haspopup="true" aria-expanded="false" aria-controls="speed-menu"
+                title="Velocidade das bolinhas. Clique pra mudar.">
+            <svg class="bolt" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2L4.5 13.5H11L10 22l9-12h-6.5z"/></svg>
+            <b class="speed-label">Velocidade</b>
+            <span id="speed-val">1×</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+
+        <div class="menu" id="speed-menu" hidden>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="true" data-speed="1">
+                <span class="label">Padrão <small>(1×)</small></span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-speed="10">
+                <span class="label">10×</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-speed="20">
+                <span class="label">20×</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-speed="50">
+                <span class="label">50×</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" role="menuitemradio" aria-checked="false" data-speed="100">
+                <span class="label">100×</span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <button type="button" class="opt" id="speed-opt-custom" role="menuitemradio" aria-checked="false">
+                <span class="label">Personalizado <small id="speed-custom-value"></small></span>
+                <svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            </button>
+            <form class="custom-form" id="speed-form" hidden>
+                <input id="speed-input" type="text" inputmode="decimal" autocomplete="off" placeholder="Quantas vezes? (0,1 a 100)" aria-label="Velocidade personalizada">
+                <button type="submit" class="apply">Aplicar</button>
+                <p class="custom-warn" id="speed-warn" role="alert" hidden></p>
+            </form>
+        </div>
+    </div>
+    <div class="chip-wrap" id="chip-wrap">
         <button type="button" class="chip" id="chip" aria-haspopup="true" aria-expanded="false" aria-controls="menu"
                 title="Quantidade de bolinhas. Clique pra mudar.">
             <span class="chip-dot"></span>
             <b id="chip-mode">Auto</b>
-            <span><span id="chip-count">0</span> bolinhas</span>
+            <span><span id="chip-count">0</span> <span id="chip-unit">bolinhas</span></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
         </button>
 
@@ -253,6 +303,7 @@
             </form>
         </div>
     </div>
+    </div>
 </header>
 
 <main class="dock-wrap">
@@ -264,7 +315,7 @@
         </button>
         <input type="file" id="img-upload" accept="image/*" tabindex="-1">
 
-        <textarea id="txt" rows="1" maxlength="150" placeholder="Escreve algo pra virar bolinhas" aria-label="Texto das bolinhas"></textarea>
+        <textarea id="txt" rows="1" maxlength="250" placeholder="Escreve algo pra virar bolinhas" aria-label="Texto das bolinhas"></textarea>
 
         <div class="photo-pill" id="photo-pill" hidden>
             <canvas id="thumb" width="72" height="72"></canvas>
@@ -276,7 +327,7 @@
     </div>
     <div class="meta">
         <span id="status-hint" role="status">Escreve algo ou solta uma foto</span>
-        <span id="counter">0/150</span>
+        <span id="counter">0/250</span>
     </div>
 </main>
 
@@ -569,11 +620,14 @@ function buildShape(shape) {
 SHAPES.forEach(buildShape);
 const SHAPE_EVERY = 9000;   // troca de forma a cada 9 s
 let shapeIdx = 0, curShape = SHAPES[0], nextShapeAt = 0, shapeSpeed = 1;
+// velocidade (menu): multiplicador de 0,1× a 100×; 1× é o jeito de sempre
+let speedMul = 1, easeIdle = 1 / 11, easeText = 1 / 16, easeLeave = 1 / 7;
 let shapeX = 0, shapeY = 0;
 
 function idleStatus() {
     const n = SHAPES[shapeIdx].name;
-    return n.charAt(0).toUpperCase() + n.slice(1) + ": toca na tela pra trocar";
+    const finger = window.matchMedia("(pointer: coarse)").matches;
+    return n.charAt(0).toUpperCase() + n.slice(1) + ": toca pra trocar, " + (finger ? "passa o dedo" : "passa o mouse") + " pra pintar";
 }
 
 function setShape(i) {
@@ -599,6 +653,13 @@ function shapeAt(table, u) {
     shapeY = table[a + 1] + (table[b + 1] - table[a + 1]) * t;
 }
 
+// pincel de cores (passar o mouse/dedo) e explosões dos easter eggs
+const PAINT = Array.from({ length: 48 }, (_, k) => `hsl(${Math.round(k * 7.5)}, 90%, 62%)`);
+let brushOn = false, brushX = 0, brushY = 0, brushR2 = 0;
+let fuse = null;                       // contagem regressiva ativa: { kind, secs, key, at, total, fired, lastSec }
+let blast = null;                      // explosão em andamento
+let blastDrag = 0.96, blastGravity = 0;
+
 class Particle {
     constructor(i) {
         this.i = i;
@@ -611,6 +672,14 @@ class Particle {
         this.jx = Math.random() * 2 - 1;           // espalha as bolinhas numa faixa em volta do traço
         this.jy = Math.random() * 2 - 1;
         this.ringSize = 1.3 + Math.random() * 1.7; // tamanho da bolinha na forma
+        // posição fixa dessa bolinha no desenho (0 a 1). A sequência da razão áurea espalha qualquer
+        // grupo das primeiras N bolinhas por igual: mudar a quantidade só liga/desliga bolinhas,
+        // ninguém troca de lugar (antes, cada ajuste do modo Auto fazia o texto todo escorregar).
+        this.k = (0.5 + i * 0.6180339887498949) % 1;
+        this.paint = null;                         // cor do pincel (some quando o desenho muda)
+        this.free = false;                         // true enquanto voa numa explosão
+        this.vx = 0;
+        this.vy = 0;
     }
 
     update() {
@@ -630,16 +699,38 @@ class Particle {
             let diff = Math.abs(u - pulseU);
             if (diff > 0.5) diff = 1 - diff;
 
-            if (diff < 0.04) { this.color = "white"; this.r = this.ringSize + 0.9; }
-            else { this.color = RING[(frac * 72) | 0]; this.r = this.ringSize; }
+            const boost = sizeBoost();
+            if (diff < 0.04) { this.color = "white"; this.r = (this.ringSize + 0.9) * boost; }
+            else { this.color = RING[(frac * 72) | 0]; this.r = this.ringSize * boost; }
         }
 
-        const ease = isIdle ? 11 : 16;
-        this.x += (this.destX - this.x) / ease;
-        this.y += (this.destY - this.y) / ease;
+        if (this.free) {
+            // explosão: voa solto, com atrito (e gravidade nas maiores)
+            this.x += this.vx;
+            this.y += this.vy;
+            this.vx *= blastDrag;
+            this.vy = this.vy * blastDrag + blastGravity;
+        } else {
+            const f = isIdle ? easeIdle : easeText;   // fração do caminho por quadro (velocidade do menu)
+            this.x += (this.destX - this.x) * f;
+            this.y += (this.destY - this.y) * f;
+        }
 
-        if (this.color !== lastFill) { ctx.fillStyle = this.color; lastFill = this.color; }
-        ctx.fillRect(this.x, this.y, this.r, this.r);
+        if (brushOn) {
+            const dx = this.x - brushX, dy = this.y - brushY;
+            if (dx * dx + dy * dy < brushR2) this.paint = PAINT[(Math.random() * PAINT.length) | 0];
+        }
+
+        const col = this.paint || this.color;
+        if (col !== lastFill) { ctx.fillStyle = col; lastFill = col; }
+        if (this.r > 4.5) {
+            // bolinha grande (poucas bolinhas): círculo de verdade. As pequenas continuam quadradinhos, que são bem mais baratos.
+            ctx.beginPath();
+            ctx.arc(this.x + this.r / 2, this.y + this.r / 2, this.r / 2, 0, TWO_PI);
+            ctx.fill();
+        } else {
+            ctx.fillRect(this.x, this.y, this.r, this.r);
+        }
     }
 }
 
@@ -669,7 +760,14 @@ function idleCount() {
     return Math.max(MIN_COUNT, Math.min(perfCap, Math.round(ringR * 100)));
 }
 
-function updateChip() { chipCount.textContent = nf.format(activeCount); }
+const chipUnit = document.getElementById("chip-unit");
+function updateChip() {
+    chipCount.textContent = nf.format(activeCount);
+    chipUnit.textContent = activeCount === 1 ? "bolinha" : "bolinhas";
+}
+
+// poucas bolinhas ficam maiores, senão 1 bolinha de 2 pixels some na tela
+function sizeBoost() { return activeCount < 1000 ? Math.min(4, Math.sqrt(1000 / Math.max(1, activeCount))) : 1; }
 
 function setStatus(text, warn) {
     statusHint.textContent = text;
@@ -677,42 +775,90 @@ function setStatus(text, warn) {
 }
 
 // ---------- DESENHO FORA DA TELA ----------
-function wrapText(text, maxW) {
-    const out = [];
-    text.split("\n").forEach(par => {
-        let line = "";
-        par.split(" ").forEach(word => {
-            const test = line ? line + " " + word : word;
-            if (!line || offCtx.measureText(test).width <= maxW) line = test;
-            else { out.push(line); line = word; }
-        });
-        out.push(line);
+// Easter eggs escritos no texto (a tag não aparece no desenho):
+//   [rainbow]palavra          a palavra seguinte fica em arco-íris
+//   [boom x] [kaboom x] [bomb x]   explode depois de x segundos
+const FUSE_RE_G = /\[\s*(boom|kaboom|bomb)(?:\s+(\d+(?:[.,]\d+)?))?\s*\]/gi;
+const RAINBOW = "[rainbow]";
+
+function parseSpecial(raw) {
+    let fuse = null;
+    const plain = raw.replace(FUSE_RE_G, (m, kind, num) => {
+        if (!fuse) fuse = { kind: kind.toLowerCase(), secs: num ? Math.min(3600, parseFloat(num.replace(",", "."))) : 3 };
+        return "";
     });
-    return out;
+    const paras = plain.split("\n").map(par => {
+        const toks = [];
+        let rbNext = false;
+        par.split(/\s+/).forEach(w => {
+            let rb = rbNext;
+            rbNext = false;
+            while (w.toLowerCase().startsWith(RAINBOW)) { w = w.slice(RAINBOW.length); rb = true; }
+            if (!w) { if (rb) rbNext = true; return; }   // "[rainbow]" sozinho vale pra próxima palavra
+            toks.push({ t: w, rb, w: 0 });
+        });
+        return toks;
+    });
+    return { paras, fuse, key: plain.trim(), empty: !paras.some(p => p.length) };
 }
 
-function drawTextToOffscreen(text) {
+// quebra as palavras em linhas que cabem na largura
+function layoutTokens(paras, maxW, spaceW) {
+    const lines = [];
+    paras.forEach(par => {
+        let cur = [], width = 0;
+        par.forEach(tok => {
+            if (cur.length && width + spaceW + tok.w > maxW) {
+                lines.push({ toks: cur, width });
+                cur = [tok];
+                width = tok.w;
+            } else {
+                width += (cur.length ? spaceW : 0) + tok.w;
+                cur.push(tok);
+            }
+        });
+        lines.push({ toks: cur, width });
+    });
+    return lines;
+}
+
+function rainbowFill(x, w) {
+    const g = offCtx.createLinearGradient(x, 0, x + Math.max(w, 1), 0);
+    for (let k = 0; k <= 6; k++) g.addColorStop(k / 6, `hsl(${k * 50}, 100%, 60%)`);
+    return g;
+}
+
+function drawTextToOffscreen(paras) {
     const st = stage();
     const maxW = canvas.width * 0.9;
     const maxH = st.h * 0.85;
     let fontSize = Math.min(150, st.h / 4.5);
-    let lines;
+    let lines, spaceW;
 
     for (;;) {
         offCtx.font = `800 ${fontSize}px ${FONT}`;
-        lines = wrapText(text, maxW);
-        const widest = Math.max(...lines.map(l => offCtx.measureText(l).width));
+        spaceW = offCtx.measureText(" ").width;
+        paras.forEach(par => par.forEach(tok => { tok.w = offCtx.measureText(tok.t).width; }));
+        lines = layoutTokens(paras, maxW, spaceW);
+        const widest = Math.max(...lines.map(l => l.width));
         const totalH = lines.length * fontSize * 1.2;
         if ((widest <= maxW && totalH <= maxH) || fontSize <= 12) break;
         fontSize -= 4;
     }
 
-    offCtx.fillStyle = "white";
-    offCtx.textAlign = "center";
+    offCtx.textAlign = "left";
     offCtx.textBaseline = "middle";
     const lineH = fontSize * 1.2;
     const startY = st.cy - (lines.length * lineH) / 2 + lineH / 2;
-    lines.forEach((l, i) => offCtx.fillText(l, canvas.width / 2, startY + i * lineH));
+    lines.forEach((line, i) => {
+        let x = (canvas.width - line.width) / 2;
+        const y = startY + i * lineH;
+        line.toks.forEach(tok => {
+            offCtx.fillStyle = tok.rb ? rainbowFill(x, tok.w) : "white";
+            offCtx.fillText(tok.t, x, y);
+            x += tok.w + spaceW;
+        });
+    });
 }
 
 function imgSize(img) {
@@ -731,10 +877,22 @@ function drawImageToOffscreen() {
     offCtx.drawImage(currentImg, (canvas.width - drawW) / 2, st.cy - drawH / 2, drawW, drawH);
 }
 
-
 // ---------- STATUS DOS WORKERS ----------
-const workerPanel = document.getElementById("worker-panel");\nconst distToggle = document.getElementById("dist-toggle");\nlet distributedEnabled = true;\ntry { distributedEnabled = localStorage.getItem("bolinhas-distributed") !== "false"; } catch {}\nfunction updateDistributedToggle() {\n    distToggle.setAttribute("aria-pressed", String(distributedEnabled));\n    distToggle.title = distributedEnabled ? "Workers remotos ativados" : "Somente processamento local";\n}\nupdateDistributedToggle();\ndistToggle.addEventListener("click", () => {\n    distributedEnabled = !distributedEnabled;\n    try { localStorage.setItem("bolinhas-distributed", String(distributedEnabled)); } catch {}\n    updateDistributedToggle();\n    if (!isIdle) queueSync();\n});
-let workerPollTimer = null;
+const workerPanel = document.getElementById("worker-panel");
+const distToggle = document.getElementById("dist-toggle");
+let distributedEnabled = true;
+try { distributedEnabled = localStorage.getItem("bolinhas-distributed") !== "false"; } catch {}
+function updateDistributedToggle() {
+    distToggle.setAttribute("aria-pressed", String(distributedEnabled));
+    distToggle.title = distributedEnabled ? "Workers remotos ativados" : "Somente processamento local";
+}
+updateDistributedToggle();
+distToggle.addEventListener("click", () => {
+    distributedEnabled = !distributedEnabled;
+    try { localStorage.setItem("bolinhas-distributed", String(distributedEnabled)); } catch {}
+    updateDistributedToggle();
+    if (!isIdle) queueSync();
+});
 async function refreshWorkerStatus() {
     try {
         const response = await fetch("/api/status", { cache: "no-store" });
@@ -771,18 +929,22 @@ async function refreshWorkerStatus() {
     }
 }
 refreshWorkerStatus();
-workerPollTimer = setInterval(refreshWorkerStatus, 800);
+const workerPollTimer = setInterval(refreshWorkerStatus, 800);
 
 // ---------- SINCRONIZAÇÃO ----------
 let syncRevision = 0;
 
 async function handleSync() {
     const thisSync = ++syncRevision;
-    const text = tempMessage || inputTxt.value.trim();
+    clearPaint();   // o desenho mudou: a tinta do pincel sai
+    const parsed = parseSpecial(tempMessage || inputTxt.value);
+    const hasText = !parsed.empty;
     const showImg = currentImg && !tempMessage;
+    // com foto na tela os easter eggs não valem (o texto nem aparece): sem contagem nem explosão
+    if (!tempMessage) updateFuse(showImg ? { fuse: null, key: "" } : parsed);
 
-    if (!text && !showImg) {
-        if (!isIdle) setShape(pickShape());   // voltou pro repouso: escolhe outra forma
+    if (!hasText && !showImg) {
+        if (!isIdle) setShape(pickShape());
         isIdle = true;
         cachedPoints = null;
         activeCount = idleCount();
@@ -800,15 +962,18 @@ async function handleSync() {
     offCtx.clearRect(0, 0, offCanvas.width, offCanvas.height);
 
     if (showImg) drawImageToOffscreen();
-    else drawTextToOffscreen(text);
+    else drawTextToOffscreen(parsed.paras);
 
     const imgData = offCtx.getImageData(0, 0, canvas.width, canvas.height).data;
     const step = 2;
     let points;
     try {
         const bytes = new Uint8Array(imgData.buffer, imgData.byteOffset, imgData.byteLength);
-        const response = await fetch("/api/points?width=" + canvas.width + "&height=" + canvas.height + "&step=" + step + "&distributed=" + (distributedEnabled ? "1" : "0"), {
-            method: "POST", headers: { "Content-Type": "application/octet-stream" }, body: bytes
+        const response = await fetch("/api/points?width=" + canvas.width + "&height=" + canvas.height +
+            "&step=" + step + "&distributed=" + (distributedEnabled ? "1" : "0"), {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: bytes
         });
         if (!response.ok) throw new Error("HTTP " + response.status);
         points = (await response.json()).points;
@@ -820,7 +985,9 @@ async function handleSync() {
         for (let y = 0; y < canvas.height; y += step) {
             for (let x = 0; x < canvas.width; x += step) {
                 const i = (y * canvas.width + x) * 4;
-                if (imgData[i + 3] > 120) points.push({ x, y, r: imgData[i], g: imgData[i + 1], b: imgData[i + 2] });
+                if (imgData[i + 3] > 120) {
+                    points.push({ x, y, r: imgData[i], g: imgData[i + 1], b: imgData[i + 2] });
+                }
             }
         }
     }
@@ -849,10 +1016,11 @@ function assign(points) {
         : Math.max(MIN_COUNT, Math.min(perfCap, Math.round(n * 2.2)));
     // se faltam bolinhas pra cobrir a área, elas crescem um pouco pra não ficar esburacado
     const areaPerDot = (n * 4) / activeCount;
-    const baseR = Math.max(0.9, Math.min(3.2, Math.sqrt(areaPerDot) * 0.95));
+    const maxR = activeCount < 1000 ? 3.2 * sizeBoost() : 3.2;
+    const baseR = Math.max(0.9, Math.min(maxR, Math.sqrt(areaPerDot) * 0.95));
     for (let i = 0; i < activeCount; i++) {
         const p = particles[i];
-        const pt = points[Math.floor((i * n) / activeCount)];
+        const pt = points[(p.k * n) | 0];
         p.destX = pt.x + (Math.random() - 0.5) * 2;
         p.destY = pt.y + (Math.random() - 0.5) * 2;
         p.color = `rgb(${pt.r}, ${pt.g}, ${pt.b})`;
@@ -940,8 +1108,7 @@ function showPhotoPill(img, name) {
 }
 
 async function handleFile(file) {
-    if (!file) return;
-    const type = file.type || "";
+    if (!file) return;    const type = file.type || "";
     if (type.startsWith("video/") || type.startsWith("audio/")) { unsupported(file); return; }
     try {
         const img = await decodeImage(file);
@@ -1004,7 +1171,7 @@ function growInput() {
 inputTxt.addEventListener("input", () => {
     dismissTempMessage();   // quem começa a digitar já seguiu em frente
     growInput();
-    counterEl.textContent = inputTxt.value.length + "/150";
+    counterEl.textContent = inputTxt.value.length + "/250";
     queueSync();
 });
 
@@ -1014,6 +1181,122 @@ function resize() {
     queueSync();
 }
 window.addEventListener("resize", resize);
+
+// ---------- PINCEL ----------
+function clearPaint() {
+    for (let i = 0; i < particles.length; i++) particles[i].paint = null;
+}
+
+function setBrush(e) {
+    brushX = e.clientX;
+    brushY = e.clientY;
+    brushR2 = Math.pow(Math.max(26, Math.min(canvas.width, canvas.height) * 0.045), 2);
+    brushOn = true;
+}
+canvas.addEventListener("pointermove", setBrush);
+canvas.addEventListener("pointerleave", () => { brushOn = false; });
+canvas.addEventListener("pointercancel", () => { brushOn = false; });
+canvas.addEventListener("pointerup", (e) => { if (e.pointerType === "touch") brushOn = false; });
+
+// ---------- EXPLOSÕES ([boom x], [kaboom x], [bomb x]) ----------
+const FUSE_ICON = { boom: "💥", kaboom: "☄️", bomb: "💣" };
+const BLASTS = {
+    boom:   { v0: 5, v1: 20, drag: 0.955, g: 0,    ms: 1700, flash: 0,   shake: 0,  shakeMs: 0 },
+    kaboom: { v0: 8, v1: 44, drag: 0.972, g: 0.12, ms: 3000, flash: 0.7, shake: 22, shakeMs: 800 },
+    bomb:   { v0: 6, v1: 30, drag: 0.965, g: 0.22, ms: 2300, flash: 0.45, shake: 12, shakeMs: 450 }
+};
+
+// só reinicia a contagem quando o texto ou a tag mudam (redimensionar a janela não reinicia)
+function updateFuse(parsed) {
+    const f = parsed.fuse;
+    if (!f) {
+        fuse = null;
+        cancelBlast();
+        return;
+    }
+    const key = f.kind + "|" + f.secs + "|" + parsed.key;
+    if (fuse && fuse.key === key) return;
+    cancelBlast();
+    fuse = { kind: f.kind, secs: f.secs, key, at: performance.now() + f.secs * 1000, total: Math.max(1, f.secs * 1000), fired: false };
+}
+
+function restoreStatus() {
+    if (statusHint.classList.contains("warn")) return;
+    setStatus(isIdle ? idleStatus() : (currentImg && !tempMessage ? "Formando a imagem" : "Formando o texto"));
+}
+
+function cancelBlast() {
+    if (!blast) return;
+    for (let i = 0; i < particles.length; i++) particles[i].free = false;
+    blast = null;
+    canvas.style.transform = "";
+}
+
+function endBlast() {
+    cancelBlast();
+    restoreStatus();   // as bolinhas voltam a formar o desenho
+}
+
+function explode(now) {
+    fuse.fired = true;
+    const cfg = BLASTS[fuse.kind];
+    const cx = canvas.width / 2, cy = stage().cy;
+    blastDrag = cfg.drag;
+    blastGravity = cfg.g;
+    for (let i = 0; i < activeCount; i++) {
+        const p = particles[i];
+        // cada bolinha sai pra longe do centro, com um pouco de desvio
+        const ang = Math.atan2(p.y - cy, p.x - cx) + (Math.random() - 0.5) * 0.7;
+        const sp = cfg.v0 + Math.random() * (cfg.v1 - cfg.v0);
+        p.vx = Math.cos(ang) * sp;
+        p.vy = Math.sin(ang) * sp - (cfg.g ? Math.random() * 3 : 0);
+        p.free = true;
+    }
+    blast = { flash: cfg.flash, shake: cfg.shake, shakeMs: cfg.shakeMs, start: now, until: now + cfg.ms };
+    if (!statusHint.classList.contains("warn")) setStatus(`${FUSE_ICON[fuse.kind]} ${fuse.kind.toUpperCase()}!`);
+}
+
+function fuseTick(now) {
+    if (!fuse || fuse.fired) return;
+    const left = fuse.at - now;
+    if (left <= 0) { explode(now); return; }
+    // contagem regressiva no status (se outra coisa trocar o texto do status, volta no quadro seguinte)
+    if (!statusHint.classList.contains("warn")) {
+        const label = `${FUSE_ICON[fuse.kind]} ${fuse.kind} em ${Math.ceil(left / 1000)}s`;
+        if (statusHint.textContent !== label) statusHint.textContent = label;
+    }
+}
+
+// tremor da tela e clarão (desligados se o sistema pede menos movimento)
+let shaking = false;
+function effects(now) {
+    let amp = 0;
+    if (slow === 1) {
+        if (fuse && !fuse.fired && fuse.kind === "bomb") {
+            const t = 1 - Math.max(0, fuse.at - now) / fuse.total;   // a bomba vai tremendo mais até estourar
+            amp = 0.4 + 3.5 * t * t;
+        }
+        if (blast && blast.shake) {
+            const t = (now - blast.start) / blast.shakeMs;
+            if (t < 1) amp = Math.max(amp, blast.shake * (1 - t));
+        }
+        if (blast && blast.flash) {
+            const t = (now - blast.start) / 350;
+            if (t < 1) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${(blast.flash * (1 - t)).toFixed(3)})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                lastFill = null;
+            }
+        }
+    }
+    if (amp > 0) {
+        canvas.style.transform = `translate(${((Math.random() - 0.5) * 2 * amp).toFixed(1)}px, ${((Math.random() - 0.5) * 2 * amp).toFixed(1)}px)`;
+        shaking = true;
+    } else if (shaking) {
+        canvas.style.transform = "";
+        shaking = false;
+    }
+}
 
 // ---------- LOOP ----------
 let lastT = performance.now();
@@ -1049,19 +1332,23 @@ function loop(now) {
     if (isIdle) {
         updateRingGeometry();
         const k = Math.min(dt, 50) / 16.667;
-        idleRotation += (0.015 / TWO_PI) * k * slow * shapeSpeed;   // em voltas (0 a 1) na curva
-        pulseOffset += (0.045 / TWO_PI) * k * slow;
+        idleRotation += (0.015 / TWO_PI) * k * slow * shapeSpeed * speedMul;   // em voltas (0 a 1) na curva
+        pulseOffset += (0.045 / TWO_PI) * k * slow * speedMul;
         pulseU = pulseOffset - Math.floor(pulseOffset);
         if (now > nextShapeAt) setShape(pickShape());
     }
+
+    fuseTick(now);
+    if (blast && now >= blast.until) endBlast();
+    effects(now);
 
     for (let i = 0; i < activeCount; i++) particles[i].update();
 
     if (now < leaveUntil) {
         for (let i = leaveFrom; i < leaveTo; i++) {
             const p = particles[i];
-            p.x += (leaveX - p.x) / 7;
-            p.y += (leaveY - p.y) / 7;
+            p.x += (leaveX - p.x) * easeLeave;
+            p.y += (leaveY - p.y) * easeLeave;
             if (p.color !== lastFill) { ctx.fillStyle = p.color; lastFill = p.color; }
             ctx.fillRect(p.x, p.y, p.r, p.r);
         }
@@ -1071,7 +1358,7 @@ function loop(now) {
 
 // ---------- MENU DE QUANTIDADE ----------
 const PRESETS = [1000, 2000, 5000, 10000];
-const WARN_ABOVE = 10000, DANGER_ABOVE = 200000, CUSTOM_MIN = 100, CUSTOM_MAX = 500000;
+const WARN_ABOVE = 10000, DANGER_ABOVE = 200000, CUSTOM_MIN = 1, CUSTOM_MAX = 500000;
 let armed = false;   // acima de DANGER_ABOVE o primeiro "Aplicar" só pede confirmação
 const chipEl = document.getElementById("chip");
 const chipWrap = document.getElementById("chip-wrap");
@@ -1089,7 +1376,8 @@ function ensurePool(n) {
 
 function chipCenter() {
     const r = chipEl.getBoundingClientRect();
-    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };}
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+}
 
 // value: null = automático
 function setCount(value) {
@@ -1205,7 +1493,7 @@ customForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const n = parseCustom();
     if (!(n >= CUSTOM_MIN)) {
-        showWarn(`Digite um número a partir de ${CUSTOM_MIN}.`, 1);
+        showWarn(`Digite um número de ${CUSTOM_MIN} a ${nf.format(CUSTOM_MAX)}.`, 1);
         customInput.focus();
         return;
     }
@@ -1219,15 +1507,120 @@ customForm.addEventListener("submit", (e) => {
     setCount(Math.min(n, CUSTOM_MAX));
     closeMenu(true);
 });
-document.addEventListener("pointerdown", (e) => { if (!menu.hidden && !chipWrap.contains(e.target)) closeMenu(); });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !menu.hidden) closeMenu(true); });
+document.addEventListener("pointerdown", (e) => {
+    if (!menu.hidden && !chipWrap.contains(e.target)) closeMenu();
+    if (!speedMenu.hidden && !speedWrap.contains(e.target)) closeSpeedMenu();
+});
+document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!menu.hidden) closeMenu(true);
+    if (!speedMenu.hidden) closeSpeedMenu(true);
+});
+
+// ---------- MENU DE VELOCIDADE ----------
+const SPEED_PRESETS = [1, 10, 20, 50, 100];
+const SPEED_MIN = 0.1, SPEED_MAX = 100;
+const speedWrap = document.getElementById("speed-wrap");
+const speedChip = document.getElementById("speed-chip");
+const speedMenu = document.getElementById("speed-menu");
+const speedVal = document.getElementById("speed-val");
+const speedOptCustom = document.getElementById("speed-opt-custom");
+const speedCustomValue = document.getElementById("speed-custom-value");
+const speedForm = document.getElementById("speed-form");
+const speedInput = document.getElementById("speed-input");
+const speedWarn = document.getElementById("speed-warn");
+
+const fmtSpeed = (v) => String(+v.toFixed(2)).replace(".", ",") + "×";
+
+function setSpeed(v) {
+    speedMul = Math.min(SPEED_MAX, Math.max(SPEED_MIN, v));
+    // fração do caminho por quadro; passa de 1 só estouraria o destino, então trava em 1
+    easeIdle = Math.min(1, speedMul / 11);
+    easeText = Math.min(1, speedMul / 16);
+    easeLeave = Math.min(1, speedMul / 7);
+    const isCustom = !SPEED_PRESETS.includes(speedMul);
+    speedMenu.querySelectorAll("[data-speed]").forEach(b => b.setAttribute("aria-checked", String(Number(b.dataset.speed) === speedMul)));
+    speedOptCustom.setAttribute("aria-checked", String(isCustom));
+    speedCustomValue.textContent = isCustom ? fmtSpeed(speedMul) : "";
+    speedVal.textContent = fmtSpeed(speedMul);
+    speedChip.classList.toggle("fast", speedMul >= 50);
+}
+
+function parseSpeed() {
+    const t = speedInput.value.trim().replace(",", ".").replace(/[x×]$/i, "");
+    return /^\d*\.?\d+$/.test(t) ? parseFloat(t) : NaN;
+}
+
+function showSpeedForm(show) {
+    speedForm.hidden = !show;
+    speedOptCustom.hidden = show;
+    speedWarn.hidden = true;
+    if (show) {
+        speedInput.value = SPEED_PRESETS.includes(speedMul) ? "" : String(speedMul).replace(".", ",");
+        speedInput.focus();
+        speedInput.select();
+    }
+}
+
+// o menu tem a largura do outro; se não couber do lado do botão, desliza pra dentro da tela
+function fitMenu(m) {
+    m.style.transform = "";
+    const r = m.getBoundingClientRect();
+    let dx = 0;
+    if (r.left < 8) dx = 8 - r.left;
+    else if (r.right > window.innerWidth - 8) dx = window.innerWidth - 8 - r.right;
+    if (dx) m.style.transform = `translateX(${Math.round(dx)}px)`;
+}
+
+function openSpeedMenu() {
+    if (!menu.hidden) closeMenu();
+    speedMenu.hidden = false;
+    speedChip.setAttribute("aria-expanded", "true");
+    fitMenu(speedMenu);
+}
+
+function closeSpeedMenu(refocus) {
+    speedMenu.hidden = true;
+    speedChip.setAttribute("aria-expanded", "false");
+    showSpeedForm(false);
+    if (refocus) speedChip.focus();
+}
+
+speedChip.addEventListener("click", () => (speedMenu.hidden ? openSpeedMenu() : closeSpeedMenu()));
+speedMenu.querySelectorAll("[data-speed]").forEach(btn => btn.addEventListener("click", () => {
+    setSpeed(Number(btn.dataset.speed));
+    closeSpeedMenu(true);
+}));
+speedOptCustom.addEventListener("click", () => showSpeedForm(true));
+speedInput.addEventListener("input", () => { speedWarn.hidden = true; });
+speedForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const n = parseSpeed();
+    if (!(n >= SPEED_MIN && n <= SPEED_MAX)) {
+        speedWarn.textContent = `Digite um número de ${String(SPEED_MIN).replace(".", ",")} a ${SPEED_MAX} (pode ter vírgula, tipo 0,5).`;
+        speedWarn.hidden = false;
+        speedInput.focus();
+        return;
+    }
+    setSpeed(n);
+    closeSpeedMenu(true);
+});
+// abrir o menu de bolinhas fecha o de velocidade (o clique já passa pelo pointerdown acima)
 
 // tocar na tela (fora da interface) troca a forma do modo parado
-let ignoreTap = false;
-canvas.addEventListener("pointerdown", () => { ignoreTap = !menu.hidden; });   // clique que só fecha o menu não conta
-canvas.addEventListener("pointerup", () => {
+let ignoreTap = false, downX = 0, downY = 0;
+canvas.addEventListener("pointerdown", (e) => {
+    ignoreTap = !menu.hidden || !speedMenu.hidden;   // clique que só fecha o menu não conta
+    downX = e.clientX;
+    downY = e.clientY;
+});
+canvas.addEventListener("pointerup", (e) => {
     if (ignoreTap) { ignoreTap = false; return; }
-    if (isIdle && !tempMessage) setShape(pickShape());
+    if (Math.hypot(e.clientX - downX, e.clientY - downY) > 12) return;   // arrastou pra pintar: não é toque
+    if (isIdle && !tempMessage) {
+        clearPaint();
+        setShape(pickShape());
+    }
 });
 
 // ---------- INÍCIO ----------
