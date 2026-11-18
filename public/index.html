@@ -184,6 +184,22 @@
         .dist-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
         .dist-btn svg { width: 15px; height: 15px; flex: none; }
         .dist-btn.on { color: var(--ink); }
+        .dist-btn.ask { color: var(--ink); border-color: #ffd27c; animation: distBlink 1s ease-in-out infinite; }
+        .dist-btn.ask .dist-dot { background: #ffd27c; box-shadow: 0 0 8px #ffd27c; }
+        @keyframes distBlink {
+            0%, 100% { background: var(--glass); box-shadow: 0 0 0 0 rgba(255, 210, 124, 0); }
+            50% { background: rgba(255, 210, 124, 0.26); box-shadow: 0 0 0 7px rgba(255, 210, 124, 0.35); }
+        }
+        .dist-ask {
+            position: absolute; left: 6px; bottom: calc(100% + 8px); z-index: 29; width: min(330px, calc(100vw - 24px));
+            padding: 12px 14px; border-radius: 18px; font-size: 13px; line-height: 1.4;
+            background: rgba(22, 25, 45, 0.96); border: 2px solid #ffd27c; box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
+        }
+        .dist-ask[hidden] { display: none; }
+        .dist-ask.inline { position: static; width: auto; margin: 0 0 12px; box-shadow: none; }
+        .dist-ask p { margin: 0 0 10px; color: var(--ink); }
+        .dist-ask-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+        .apply-btn.ghost { background: var(--glass); color: var(--ink); border: 1px solid var(--line); }
         .dist-dot { width: 8px; height: 8px; border-radius: 50%; background: #59607f; }
         .dist-btn.on .dist-dot { background: #59f0a6; box-shadow: 0 0 8px #59f0a6; }
         .dist-btn.busy .dist-dot { background: #ffd27c; }
@@ -260,7 +276,7 @@
             .chips { gap: 6px; }
             .chip { font-size: 12px; }
         }
-        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+        @media (prefers-reduced-motion: reduce) { * { transition: none !important; } .dist-btn.ask { animation: none; background: rgba(255, 210, 124, 0.26); } }
     </style>
 </head>
 <body>
@@ -396,6 +412,10 @@
             </div>
             <div id="dist-on-view" hidden>
                 <h3>Distribuído ligado</h3>
+                <div class="dist-ask inline" id="dist-ask-inline" hidden>
+                    <p><b>Você abriu uma imagem.</b> Os dispositivos do modo distribuído precisam ajudar a desenhar?</p>
+                    <div class="dist-ask-btns"><button type="button" class="apply-btn dist-ask-yes">Sim, ajudar</button><button type="button" class="apply-btn ghost dist-ask-no">Não, só aqui</button></div>
+                </div>
                 <p>Nos outros PCs, abre o link ou o botão <b>Ajudar a rede</b> do topo e digita o código:</p>
                 <div class="dist-code" id="dist-code" aria-live="polite"></div>
                 <div class="dist-linkrow"><input id="dist-link" type="text" readonly aria-label="Link pra ajudar"><button type="button" class="apply-btn" id="dist-copy">Copiar</button></div>
@@ -404,6 +424,10 @@
                 <button type="button" class="apply-btn danger" id="dist-off">Desligar</button>
             </div>
             <p class="custom-warn" id="dist-error" role="alert" hidden></p>
+        </div>
+        <div class="dist-ask" id="dist-ask" role="alertdialog" aria-labelledby="dist-ask-q" hidden>
+            <p id="dist-ask-q"><b>Você abriu uma imagem.</b> Os dispositivos do modo distribuído precisam ajudar a desenhar?</p>
+            <div class="dist-ask-btns"><button type="button" class="apply-btn dist-ask-yes">Sim, ajudar</button><button type="button" class="apply-btn ghost dist-ask-no">Não, só aqui</button></div>
         </div>
     </div>
     <div class="dock">
@@ -503,6 +527,9 @@ const IS_PC = window.matchMedia("(pointer: fine)").matches && window.matchMedia(
 const HELPER_MODE = /[?&]ajudar(?:[=&]|$)/.test(location.search);
 const qs = new URLSearchParams(location.search);
 const dist = { on: false, starting: false, peer: null, code: "", helpers: [], mediaId: 0, idleSent: false, error: "" };
+// imagem aberta com o modo distribuído ligado: o anfitrião responde se os ajudantes devem ajudar (por imagem)
+const imgDist = { answered: false, accepted: false };
+let imageFile = null;
 const MAX_POOL = isMobile ? 16000 : 40000;   // total de bolinhas que existem
 const MIN_COUNT = 1500;                      // nunca usa menos que isso
 const MIN_CAP = 5000;                        // menor teto que o ajuste de desempenho aceita
@@ -1035,7 +1062,8 @@ function handleSync() {
     const hasText = !parsed.empty;
     const showImg = currentImg && !tempMessage;
     updatePip(showImg);
-    if (!(showImg && isVideo(currentImg))) distIdle();
+    if (!(showImg && gridMedia())) distIdle();
+    distAskUI();
     // com foto na tela os easter eggs não valem (o texto nem aparece): sem contagem nem explosão
     if (!tempMessage) updateFuse(showImg ? { fuse: null, key: "" } : parsed);
 
@@ -1053,7 +1081,7 @@ function handleSync() {
     if (tempMessage) setStatus(tempDetail, true);
     else setStatus(showImg ? formingMsg() : "Formando o texto");
 
-    if (showImg && isVideo(currentImg)) {
+    if (showImg && gridMedia()) {
         // vídeo: grade fixa cobrindo o quadro; só as cores mudam a cada quadro (ver sampleVideo)
         cachedPoints = buildVideoPoints();
         assign(cachedPoints);
@@ -1099,13 +1127,14 @@ function assign(points) {
     const n = points.length;
     // ~2 bolinhas por ponto amostrado deixa a forma cheia; o teto de desempenho limita
     // (distribuído: o total manual é dividido entre esta máquina e os ajudantes)
-    activeCount = manualCount !== null
+    activeCount = points.counts ? points.counts[0]
+        : manualCount !== null
         ? Math.ceil(manualCount / (points.parts || 1))
         : Math.max(MIN_COUNT, Math.min(perfCap, Math.round(n * 2.2)));
     ensurePool(activeCount);
     // se faltam bolinhas pra cobrir a área, elas crescem um pouco pra não ficar esburacado
     const cell = points.cell || 2;   // lado (px) de cada ponto amostrado
-    const areaPerDot = (n * cell * cell) / activeCount;
+    const areaPerDot = (n * cell * cell) / Math.max(1, activeCount);
     const maxR = activeCount < 1000 ? 3.2 * sizeBoost() : 3.2;
     const baseR = Math.max(0.9, Math.min(maxR, Math.sqrt(areaPerDot) * 0.95));
     for (let i = 0; i < activeCount; i++) {
@@ -1135,18 +1164,28 @@ function lutColor(r, g, b) {
     return COLOR_LUT[k] || (COLOR_LUT[k] = `rgb(${(r & 248) | 4}, ${(g & 248) | 4}, ${(b & 248) | 4})`);
 }
 
+// Modo grade (faixas): vídeo, ou imagem que o anfitrião aceitou dividir E já tem ajudante pronto
+function gridMedia() {
+    if (!currentImg || tempMessage) return false;
+    if (isVideo(currentImg)) return true;
+    return imgDist.accepted && distReadyHelpers().length > 0;
+}
+
 function buildVideoPoints() {
-    const { w, h } = imgSize(videoEl);
+    const still = !isVideo(currentImg);
+    const src = still ? currentImg : videoEl;
+    const { w, h } = imgSize(src);
     const st = stage();
     const k = Math.min((canvas.width * 0.95) / w, (st.h * 0.95) / h);
     const drawW = w * k, drawH = h * k;
     const left = (canvas.width - drawW) / 2, top = st.cy - drawH / 2;
     // com mais bolinhas a grade fica mais fina (senão as bolinhas extras não mostram detalhe novo)
     const cellsTarget = manualCount !== null ? Math.min(250000, Math.max(VIDEO_CELLS, manualCount / 2)) : VIDEO_CELLS;
-    const cell = Math.max(2, Math.ceil(Math.sqrt((drawW * drawH) / cellsTarget)));
+    const cell = still ? 2 : Math.max(2, Math.ceil(Math.sqrt((drawW * drawH) / cellsTarget)));
     // modo distribuído: esta máquina desenha só a primeira faixa; cada ajudante pronto desenha a sua
     const ready = distReadyHelpers();
     const parts = 1 + ready.length;
+    if (still) return buildStillPoints(src, left, top, drawW, drawH, cell, ready, parts);
     const cols = Math.max(1, Math.floor((drawW / parts) / cell)), rows = Math.max(1, Math.floor(drawH / cell));
     vidCanvas.width = cols;
     vidCanvas.height = rows;
@@ -1166,9 +1205,54 @@ function buildVideoPoints() {
     return points;
 }
 
+// Imagem dividida em faixas: só as células visíveis (alfa) ganham bolinhas, e cada faixa recebe bolinhas
+// em proporção às suas células visíveis. As colunas das faixas são alinhadas às células.
+function buildStillPoints(src, left, top, drawW, drawH, cell, ready, parts) {
+    const colsT = Math.max(parts, Math.floor(drawW / cell)), rows = Math.max(1, Math.floor(drawH / cell));
+    vidCanvas.width = colsT;
+    vidCanvas.height = rows;
+    vidCtx.clearRect(0, 0, colsT, rows);
+    vidCtx.drawImage(src, 0, 0, colsT, rows);
+    const d = vidCtx.getImageData(0, 0, colsT, rows).data;
+    const bounds = Array.from({ length: parts + 1 }, (_, i) => Math.round(i * colsT / parts));
+    const opaque = new Array(parts).fill(0);
+    const points = [];
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < colsT; c++) {
+            const o = (r * colsT + c) * 4;
+            if (d[o + 3] < 120) continue;
+            let si = 0;
+            while (c >= bounds[si + 1]) si++;
+            opaque[si]++;
+            if (si === 0) points.push({ x: left + c * cell, y: top + r * cell, r: d[o], g: d[o + 1], b: d[o + 2] });
+        }
+    }
+    const total = opaque.reduce((a, b) => a + b, 0);
+    // mesma densidade (bolinhas por célula visível) em todas as faixas, senão uma faixa fica rala e outra cheia.
+    // Automático: a faixa mais cheia manda, limitada pelo teto de desempenho. Manual: o total é dividido em proporção.
+    const dens = Math.min(2.2, perfCap / Math.max(1, ...opaque));
+    const counts = opaque.map(m => {
+        if (!m) return 0;
+        if (manualCount !== null) return Math.max(1, Math.round(manualCount * m / Math.max(1, total)));
+        return Math.max(1, Math.round(dens * m));
+    });
+    points.cell = cell;
+    points.parts = parts;
+    points.helpers = ready;
+    points.geom = { left, top, drawW, drawH, cell };
+    points.video = true;     // usa o mesmo caminho das faixas do vídeo...
+    points.still = true;     // ...mas estático: cores fixas, nada a atualizar por quadro
+    points.counts = counts;
+    points.opaque = opaque;
+    points.bounds = bounds;
+    points.colsT = colsT;
+    points.rows = rows;
+    return points;
+}
+
 function sampleVideo() {
     const pts = cachedPoints;
-    if (!pts || !pts.video || !videoEl || videoEl.readyState < 2) return;
+    if (!pts || !pts.video || pts.still || !videoEl || videoEl.readyState < 2) return;
     const vw = videoEl.videoWidth, vh = videoEl.videoHeight;
     vidCtx.drawImage(videoEl, pts.f0 * vw, 0, (pts.f1 - pts.f0) * vw, vh, 0, 0, pts.cols, pts.rows);
     const d = vidCtx.getImageData(0, 0, pts.cols, pts.rows).data;
@@ -1183,7 +1267,7 @@ function sampleVideo() {
 }
 
 function videoTick(now) {
-    if (isIdle || now - lastVideoAt < VIDEO_EVERY_MS || !videoEl || !cachedPoints || !cachedPoints.video) return;
+    if (isIdle || now - lastVideoAt < VIDEO_EVERY_MS || !videoEl || !cachedPoints || !cachedPoints.video || cachedPoints.still) return;
     lastVideoAt = now;
     if (videoEl.currentTime !== lastVideoTime) sampleVideo();   // pausado: nada novo pra mostrar
 }
@@ -1397,6 +1481,7 @@ async function handleFile(file) {
         clearTimeout(tempTimer);
         tempMessage = null;
         currentImg = img;
+        imageFile = file;
         showPhotoPill(img, file.name);
         syncWithLimit();
     } catch (e) {
@@ -2040,7 +2125,7 @@ const randomCode = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), v
 const distBtn = document.getElementById("dist-btn");
 const distPanel = document.getElementById("dist-panel");
 const distBox = document.getElementById("dist-box");
-let videoFile = null;
+let videoFile = null, mediaKind = "video";
 
 function distReadyHelpers() { return dist.on ? dist.helpers.filter(h => h.ready) : []; }
 // em quantas máquinas o desenho do vídeo está dividido agora (1 = só esta)
@@ -2101,7 +2186,7 @@ function distOnConn(conn) {
 
 function distOnData(h, m) {
     if (!m || typeof m !== "object" || m instanceof ArrayBuffer) return;
-    if (m.t === "hello") { h.hello = true; distSendMedia(h); distUI(); }
+    if (m.t === "hello") { h.hello = true; distSendMedia(h); distUI(); distAskUI(); }
     else if (m.t === "ready" && m.id === dist.mediaId && !h.ready) { h.ready = true; distUI(); syncWithLimit(); }
     else if (m.t === "stats") { h.stats = { fps: Math.round(+m.fps || 0), count: Math.round(+m.count || 0) }; distUI(); }
 }
@@ -2138,13 +2223,13 @@ function distDrop(h, silent) {
 // manda o arquivo do vídeo em pedaços, esperando o buffer esvaziar
 async function distSendMedia(h) {
     const f = videoFile;
-    if (!h.hello || !f || !isVideo(currentImg) || h.sentMedia === dist.mediaId) return;
+    if (!h.hello || !f || !(isVideo(currentImg) || imgDist.accepted) || h.sentMedia === dist.mediaId) return;
     if (f.size > MAX_MEDIA_BYTES) { h.tooBig = true; try { h.conn.send({ t: "idle", why: "big" }); } catch (e) { /* ok */ } distUI(); return; }
     const id = dist.mediaId;
     h.sentMedia = id; h.ready = false; h.sentBytes = 0; h.tooBig = false;
     const gone = () => dist.mediaId !== id || !dist.helpers.includes(h);
     try {
-        h.conn.send({ t: "media", id, name: f.name, size: f.size, mime: f.type });
+        h.conn.send({ t: "media", id, kind: mediaKind, name: f.name, size: f.size, mime: f.type });
         const dc = h.conn.dataChannel;
         for (let off = 0; off < f.size; off += CHUNK) {
             const buf = await f.slice(off, off + CHUNK).arrayBuffer();
@@ -2158,14 +2243,17 @@ async function distSendMedia(h) {
     } catch (e) { /* o ajudante caiu no meio: distDrop cuida */ }
 }
 
-function distNewMedia(file) {
+function distNewMedia(file, kind) {
     videoFile = file;
+    mediaKind = kind || "video";
     dist.mediaId++;
     dist.helpers.forEach(h => { h.ready = false; h.sentMedia = -1; h.lastJob = ""; h.rect = null; });
 }
 function distOffer() { dist.helpers.forEach(distSendMedia); }
 function distForgetMedia() {
     videoFile = null;
+    imageFile = null;
+    imgDist.answered = false; imgDist.accepted = false;
     dist.mediaId++;
     dist.helpers.forEach(h => { h.ready = false; h.sentMedia = -1; h.lastJob = ""; h.rect = null; });
 }
@@ -2180,10 +2268,18 @@ function distSendJobs() {
     const g = pts.geom, parts = pts.parts;
     pts.helpers.forEach((h, i) => {
         if (!dist.helpers.includes(h)) return;
-        const f0 = (i + 1) / parts, f1 = (i + 2) / parts;
-        const x0 = Math.round(g.left + f0 * g.drawW), x1 = Math.round(g.left + f1 * g.drawW);
-        h.rect = { x: x0, y: Math.round(g.top), w: Math.max(1, x1 - x0), h: Math.max(1, Math.round(g.drawH)) };
-        const job = { t: "job", id: dist.mediaId, f0, f1, w: h.rect.w, h: h.rect.h, cell: g.cell, count: activeCount };
+        let f0 = (i + 1) / parts, f1 = (i + 2) / parts, job;
+        if (pts.still) {
+            // imagem: faixa alinhada às células, e a contagem de bolinhas vem calculada pelo anfitrião
+            const c0 = pts.bounds[i + 1], c1 = pts.bounds[i + 2];
+            f0 = c0 / pts.colsT; f1 = c1 / pts.colsT;
+            h.rect = { x: Math.round(g.left + c0 * g.cell), y: Math.round(g.top), w: (c1 - c0) * g.cell, h: pts.rows * g.cell };
+            job = { t: "job", id: dist.mediaId, kind: "image", f0, f1, w: h.rect.w, h: h.rect.h, cell: g.cell, count: pts.counts[i + 1] };
+        } else {
+            const x0 = Math.round(g.left + f0 * g.drawW), x1 = Math.round(g.left + f1 * g.drawW);
+            h.rect = { x: x0, y: Math.round(g.top), w: Math.max(1, x1 - x0), h: Math.max(1, Math.round(g.drawH)) };
+            job = { t: "job", id: dist.mediaId, kind: "video", f0, f1, w: h.rect.w, h: h.rect.h, cell: g.cell, count: activeCount };
+        }
         const key = JSON.stringify(job);
         if (key === h.lastJob) return;
         h.lastJob = key;
@@ -2233,7 +2329,8 @@ function distUI() {
     const n = dist.helpers.length;
     distBtn.classList.toggle("on", dist.on);
     distBtn.classList.toggle("busy", dist.starting);
-    distUIEl.text.textContent = dist.on ? `Distribuído · ${n} ${n === 1 ? "PC" : "PCs"}` : dist.starting ? "Conectando…" : "Modo distribuído";
+    distUIEl.text.textContent = dist.on ? (distNeedsAsk() ? "Distribuído · ajudar com a imagem?" : `Distribuído · ${n} ${n === 1 ? "PC" : "PCs"}`) : dist.starting ? "Conectando…" : "Modo distribuído";
+    distBtn.classList.toggle("ask", distNeedsAsk());
     distUIEl.off.hidden = dist.on;
     distUIEl.on.hidden = !dist.on;
     distUIEl.err.hidden = !dist.error;
@@ -2258,10 +2355,34 @@ function distUI() {
         distUIEl.list.appendChild(li);
     });
 }
+// imagem aberta + modo distribuído ligado + pelo menos um ajudante: o botão pisca e pergunta se eles devem ajudar
+function distNeedsAsk() {
+    return dist.on && !!currentImg && !isVideo(currentImg) && !tempMessage && !!imageFile && !imgDist.answered
+        && dist.helpers.some(h => h.hello && !h.tooBig);
+}
+const distAsk = document.getElementById("dist-ask");
+const distAskInline = document.getElementById("dist-ask-inline");
+function distAskUI() {
+    const need = distNeedsAsk();
+    distBtn.classList.toggle("ask", need);
+    distAsk.hidden = !(need && distPanel.hidden);   // com o painel aberto, a pergunta aparece dentro dele
+    distAskInline.hidden = !need;
+    if (need) distUIEl.text.textContent = "Distribuído · ajudar com a imagem?";
+    else distUI();
+}
+function distAnswer(yes) {
+    imgDist.answered = true;
+    imgDist.accepted = !!yes;
+    if (yes && imageFile) { distNewMedia(imageFile, "image"); distOffer(); }   // o envio acontece; quando um ajudante ficar pronto a imagem passa a ser dividida
+    distAskUI();
+}
+document.querySelectorAll(".dist-ask-yes").forEach(b => b.addEventListener("click", () => distAnswer(true)));
+document.querySelectorAll(".dist-ask-no").forEach(b => b.addEventListener("click", () => distAnswer(false)));
 distBtn.addEventListener("click", () => {
     const open = distPanel.hidden;
     distPanel.hidden = !open;
     distBtn.setAttribute("aria-expanded", String(open));
+    distAskUI();
 });
 document.getElementById("dist-on").addEventListener("click", distStart);
 document.getElementById("dist-off").addEventListener("click", distStop);
@@ -2284,7 +2405,7 @@ if (IS_PC) {
 // --- ajudante (página ?ajudar) ---
 const BG32 = 0xFF1C0F0D;   // cor de fundo da página (#0d0f1c) em ABGR
 const helper = {
-    peer: null, conn: null, call: null, video: null, url: null, chunks: [], size: 0, got: 0, receiving: false, mediaId: -1, mime: "",
+    peer: null, conn: null, call: null, video: null, still: null, kind: "video", dirty: false, lastPut: 0, url: null, chunks: [], size: 0, got: 0, receiving: false, mediaId: -1, mime: "",
     job: null, cvs: null, c2d: null, img: null, buf: null, small: null, sctx: null, cc: null, pc: null, px: null, py: null,
     size_: 1, cols: 1, rows: 1, n: 1, timer: 0, frames: 0, fpsAt: 0, fps: 0, active: false
 };
@@ -2301,7 +2422,7 @@ function helperReset() {
     try { if (helper.peer) helper.peer.destroy(); } catch (e) { /* ok */ }
     if (helper.video) { helper.video.pause(); helper.video.removeAttribute("src"); helper.video.load(); }
     if (helper.url) URL.revokeObjectURL(helper.url);
-    Object.assign(helper, { peer: null, conn: null, call: null, video: null, url: null, chunks: [], size: 0, got: 0, receiving: false, mediaId: -1, job: null, active: false, cvs: null, buf: null });
+    Object.assign(helper, { peer: null, conn: null, call: null, video: null, still: null, url: null, chunks: [], size: 0, got: 0, receiving: false, mediaId: -1, job: null, active: false, cvs: null, buf: null });
     hv.bar.hidden = true;
 }
 function helperEnd(msg, bad) {
@@ -2361,16 +2482,16 @@ function helperOnData(m) {
         const size = +m.size;
         if (!(size > 0) || size > MAX_MEDIA_BYTES + 1024) { helperSay("O vídeo é grande demais pra receber aqui.", true); return; }
         helperStopVideo();
-        Object.assign(helper, { chunks: [], size, got: 0, receiving: true, mediaId: +m.id, mime: String(m.mime || "video/mp4").slice(0, 60), job: null, active: false });
-        helperSay("Recebendo o vídeo…");
+        Object.assign(helper, { chunks: [], size, got: 0, receiving: true, mediaId: +m.id, kind: m.kind === "image" ? "image" : "video", mime: String(m.mime || (m.kind === "image" ? "image/png" : "video/mp4")).slice(0, 60), job: null, active: false });
+        helperSay(helper.kind === "image" ? "Recebendo a imagem…" : "Recebendo o vídeo…");
     } else if (m.t === "media-end" && helper.receiving && +m.id === helper.mediaId) {
         helper.receiving = false;
         const blob = new Blob(helper.chunks, { type: helper.mime });
         helper.chunks = [];
         hv.bar.hidden = true;
-        if (blob.size !== helper.size) { helperSay("O vídeo chegou incompleto.", true); return; }
-        helperLoadVideo(blob);
-    } else if (m.t === "job" && helper.video && +m.id === helper.mediaId) {
+        if (blob.size !== helper.size) { helperSay("O arquivo chegou incompleto.", true); return; }
+        if (helper.kind === "image") helperLoadImage(blob); else helperLoadVideo(blob);
+    } else if (m.t === "job" && (helper.video || helper.still) && +m.id === helper.mediaId) {
         helperJob(m);
     } else if (m.t === "sync" && helper.video && +m.id === helper.mediaId) {
         helperSync(m);
@@ -2383,9 +2504,21 @@ function helperOnData(m) {
 }
 
 function helperStopVideo() {
+    if (helper.still) { try { helper.still.close(); } catch (e) { /* ok */ } helper.still = null; }
     if (helper.video) { helper.video.pause(); helper.video.removeAttribute("src"); helper.video.load(); }
     if (helper.url) URL.revokeObjectURL(helper.url);
     helper.video = null; helper.url = null;
+}
+
+async function helperLoadImage(blob) {
+    const id = helper.mediaId;
+    try {
+        const bmp = await createImageBitmap(blob);
+        if (id !== helper.mediaId) { bmp.close(); return; }
+        helper.still = bmp;
+        helperSay("Imagem pronta. Esperando a minha faixa…");
+        try { helper.conn.send({ t: "ready", id }); } catch (e) { /* caiu */ }
+    } catch (e) { helperSay("Este navegador não conseguiu abrir a imagem do anfitrião.", true); }
 }
 
 function helperLoadVideo(blob) {
@@ -2407,9 +2540,11 @@ function helperJob(m) {
     const num = (x, lo, hi, d) => { x = +x; return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
     const job = {
         f0: num(m.f0, 0, 1, 0), f1: num(m.f1, 0, 1, 1), w: Math.round(num(m.w, 8, 4096, 8)), h: Math.round(num(m.h, 8, 4096, 8)),
-        cell: Math.round(num(m.cell, 1, 64, 2)), count: Math.round(num(m.count, 1, 600000, 1000))
+        cell: Math.round(num(m.cell, 1, 64, 2)), count: Math.round(num(m.count, 0, 600000, 1000))
     };
     if (job.f1 <= job.f0) return;
+    if (m.kind === "image" && !helper.still) return;   // o job não combina com o que tenho aberto
+    if (m.kind !== "image" && !helper.video) return;
     helper.job = job;
     if (!helper.cvs) { helper.cvs = hv.preview; helper.c2d = helper.cvs.getContext("2d"); helper.small = document.createElement("canvas"); helper.sctx = helper.small.getContext("2d", { willReadFrequently: true }); }
     const c = helper.cvs;
@@ -2421,19 +2556,43 @@ function helperJob(m) {
     helper.small.width = helper.cols; helper.small.height = helper.rows;
     const n = helper.n = helper.cols * helper.rows;
     helper.cc = new Uint32Array(n);
+    // imagem: as cores são fixas; só as células visíveis (alfa) ganham bolinhas
+    let cells = null;
+    if (helper.still) {
+        const bw = helper.still.width, bh = helper.still.height;
+        helper.sctx.clearRect(0, 0, helper.cols, helper.rows);
+        helper.sctx.drawImage(helper.still, job.f0 * bw, 0, (job.f1 - job.f0) * bw, bh, 0, 0, helper.cols, helper.rows);
+        const d = helper.sctx.getImageData(0, 0, helper.cols, helper.rows).data;
+        const vis = [];
+        for (let i = 0, o = 0; i < n; i++, o += 4) {
+            helper.cc[i] = 0xFF000000 | (d[o + 2] << 16) | (d[o + 1] << 8) | d[o];
+            if (d[o + 3] >= 120) vis.push(i);
+        }
+        cells = Int32Array.from(vis);
+    }
     // mesma distribuição das bolinhas do anfitrião: sequência da razão áurea espalha de forma uniforme
-    const count = job.count;
+    const count = cells && !cells.length ? 0 : job.count;
+    const pool = cells ? cells.length : n;
     helper.pc = new Int32Array(count); helper.px = new Uint16Array(count); helper.py = new Uint16Array(count);
-    const areaPerDot = (n * job.cell * job.cell) / count;
-    helper.size_ = Math.max(1, Math.round(Math.max(0.9, Math.min(3.2, Math.sqrt(areaPerDot) * 0.95))));
+    const areaPerDot = (pool * job.cell * job.cell) / Math.max(1, count);
+    // tamanho de cada bolinha: o do anfitrião varia de 75% a 125% e é desenhado com suavização (cobre mais área).
+    // Aqui o tamanho é inteiro, então sorteio entre o inteiro de baixo e o de cima pra manter a média.
+    const baseR = Math.max(0.9, Math.min(3.2, Math.sqrt(areaPerDot) * 0.95));
+    helper.ps = new Uint8Array(count);
     for (let j = 0; j < count; j++) {
-        const ci = (((0.5 + j * 0.6180339887498949) % 1) * n) | 0;
+        const r = baseR * (0.75 + Math.random() * 0.5), f = Math.floor(r);
+        helper.ps[j] = Math.max(1, f + (Math.random() < r - f ? 1 : 0));
+    }
+    for (let j = 0; j < count; j++) {
+        const k = ((0.5 + j * 0.6180339887498949) % 1) * pool | 0;
+        const ci = cells ? cells[k] : k;
         helper.pc[j] = ci;
         helper.px[j] = (ci % helper.cols) * job.cell + ((Math.random() * job.cell) | 0);
         helper.py[j] = ((ci / helper.cols) | 0) * job.cell + ((Math.random() * job.cell) | 0);
     }
+    helper.dirty = true;
     helper.active = true;
-    helperSay(`Ajudando: desenhando ${nf.format(count)} bolinhas de uma faixa de ${job.w}×${job.h}.`);
+    helperSay(`Ajudando: desenhando ${nf.format(count)} bolinhas de uma faixa de ${job.w}×${job.h}${helper.still ? " (imagem)" : ""}.`);
     if (!helper.call) {
         // devolve a faixa desenhada como vídeo ao vivo
         helper.call = helper.peer.call(helper.conn.peer, helper.cvs.captureStream(30));
@@ -2457,16 +2616,30 @@ function helperTick() {
     const v = helper.video, J = helper.job;
     if (!J || !helper.buf) return;
     const buf = helper.buf, w = J.w, h = J.h;
-    if (helper.active && v && v.readyState >= 2) {
+    if (helper.still) {
+        // imagem: desenha uma vez; depois só reenvia o quadro de vez em quando pra manter o vídeo ao vivo
+        if (helper.dirty) {
+            buf.fill(BG32);
+            const pc = helper.pc, px = helper.px, py = helper.py, ps = helper.ps, cc = helper.cc;
+            for (let j = 0; j < pc.length; j++) {
+                const col = cc[pc[j]], x = px[j], y = py[j], s = ps[j], xe = Math.min(w, x + s), ye = Math.min(h, y + s);
+                for (let yy = y; yy < ye; yy++) { const row = yy * w; for (let xx = x; xx < xe; xx++) buf[row + xx] = col; }
+            }
+            helper.dirty = false;
+            helper.lastPut = 0;
+        }
+        const t = performance.now();
+        if (t - helper.lastPut > 250) { helper.c2d.putImageData(helper.img, 0, 0); helper.lastPut = t; helper.frames++; }
+    } else if (helper.active && v && v.readyState >= 2) {
         const vw = v.videoWidth, vh = v.videoHeight;
         helper.sctx.drawImage(v, J.f0 * vw, 0, (J.f1 - J.f0) * vw, vh, 0, 0, helper.cols, helper.rows);
         const d = helper.sctx.getImageData(0, 0, helper.cols, helper.rows).data;
         const cc = helper.cc, n = helper.n;
         for (let i = 0, o = 0; i < n; i++, o += 4) cc[i] = 0xFF000000 | (d[o + 2] << 16) | (d[o + 1] << 8) | d[o];
         buf.fill(BG32);
-        const pc = helper.pc, px = helper.px, py = helper.py, s = helper.size_, count = pc.length;
+        const pc = helper.pc, px = helper.px, py = helper.py, ps = helper.ps, count = pc.length;
         for (let j = 0; j < count; j++) {
-            const col = cc[pc[j]], x = px[j], y = py[j];
+            const col = cc[pc[j]], x = px[j], y = py[j], s = ps[j];
             const xe = Math.min(w, x + s), ye = Math.min(h, y + s);
             for (let yy = y; yy < ye; yy++) { const row = yy * w; for (let xx = x; xx < xe; xx++) buf[row + xx] = col; }
         }
@@ -2480,7 +2653,7 @@ function helperTick() {
     if (now - helper.fpsAt >= 1000) {
         helper.fps = Math.round(helper.frames * 1000 / (now - helper.fpsAt));
         helper.frames = 0; helper.fpsAt = now;
-        hv.stats.textContent = helper.active ? `${helper.fps} quadros por segundo · ${nf.format(helper.pc.length)} bolinhas` : "";
+        hv.stats.textContent = helper.active ? `${helper.still ? "imagem parada" : helper.fps + " quadros por segundo"} · ${nf.format(helper.pc.length)} bolinhas` : "";
         try { if (helper.conn && helper.conn.open) helper.conn.send({ t: "stats", fps: helper.fps, count: helper.active ? helper.pc.length : 0 }); } catch (e) { /* ok */ }
     }
 }
