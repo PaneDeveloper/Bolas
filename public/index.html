@@ -228,6 +228,16 @@
         .helper-card h1 { margin: 0 0 8px; font-size: 24px; letter-spacing: -0.02em; }
         .helper-card p { color: var(--muted); }
         .helper-card label { display: block; margin-bottom: 6px; font-weight: 800; }
+        .helper-warn {
+            margin: 0 0 16px; padding: 14px 16px; border-radius: 16px; color: #ffd9d0;
+            background: rgba(255, 70, 60, 0.16); border: 2px solid rgba(255, 110, 95, 0.85);
+        }
+        .helper-warn strong { display: block; margin-bottom: 6px; font-size: 19px; letter-spacing: -0.01em; color: #ffb4a8; }
+        .helper-warn p, .helper-warn ul { color: #ffd9d0; margin: 0 0 8px; }
+        .helper-warn ul { padding-left: 18px; }
+        #helper-view .helper-warn li, #helper-view .helper-warn ul, #helper-view .helper-warn p { color: #ffe3dc; }
+        .helper-warn b { color: #fff; }
+        .helper-warn.small { padding: 8px 12px; font-size: 13px; }
         #helper-status { color: var(--ink); font-weight: 800; }
         #helper-status.warn, .custom-warn.warn { color: var(--warn); }
         #helper-bar { width: 100%; height: 8px; margin-bottom: 10px; }
@@ -429,6 +439,15 @@
 <section id="helper-view" aria-label="Ajudar a desenhar bolinhas">
     <div class="helper-card">
         <h1>Ajudar a desenhar bolinhas</h1>
+        <div class="helper-warn" id="helper-nopc" role="alert" hidden>
+            <strong>⚠️ ESTA PÁGINA É SÓ PRA PC!</strong>
+            <p>Você está num <b>celular ou TV</b>. Ajudar a desenhar vídeo gasta MUITO processamento e esses aparelhos não foram feitos pra isso.</p>
+            <ul>
+                <li>O desempenho vai <b>derrapar</b>: quadros lentos e travadas.</li>
+                <li>Provavelmente <b>não vai aguentar muito tempo</b>: o aparelho esquenta, a bateria some e o navegador pode fechar a aba.</li>
+                <li>Pra ajudar de verdade, abra esta página num PC. No celular ou na TV, use o <b>Modo distribuído</b> da página principal como anfitrião.</li>
+            </ul>
+        </div>
         <p>Esta página põe o seu PC pra ajudar outro aparelho a desenhar um <b>vídeo</b> em bolinhas. Cada PC desenha uma faixa da imagem e devolve o resultado em vídeo.</p>
         <ul>
             <li>Roda só o código desta página. Nada é executado a partir do outro aparelho: ele só manda o arquivo do vídeo e alguns números.</li>
@@ -441,8 +460,8 @@
             <div class="helper-row"><input id="helper-code" type="text" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123"><button type="button" class="apply-btn" id="helper-go">Começar a ajudar</button></div>
             <p class="custom-warn" id="helper-error" role="alert" hidden></p>
         </div>
-        <p id="helper-nopc" hidden>Esta página é só pra PC (com mouse). No celular e na TV, use o botão <b>Modo distribuído</b> da página principal como anfitrião.</p>
         <div id="helper-run" hidden>
+            <p class="helper-warn small" id="helper-run-warn" hidden>⚠️ Você está num celular/TV: se travar, esquentar ou ficar lento, aperte <b>Parar de ajudar</b>.</p>
             <p id="helper-status" role="status">Conectando…</p>
             <progress id="helper-bar" max="1" value="0" hidden></progress>
             <p id="helper-stats" class="dist-small"></p>
@@ -2293,7 +2312,18 @@ function helperEnd(msg, bad) {
     hv.go.disabled = false;
 }
 
+let helperConfirmedNoPc = false;
 async function helperGo() {
+    if (!IS_PC && !helperConfirmedNoPc) {
+        // 1º toque só mostra o aviso de novo, em destaque; o 2º segue
+        helperConfirmedNoPc = true;
+        hv.go.textContent = "Entendi: ajudar mesmo assim";
+        hv.go.classList.add("danger");
+        hv.err.hidden = false; hv.err.classList.add("warn");
+        hv.err.textContent = "⚠️ Isto é pra PC. No celular/TV pode travar e não deve aguentar muito tempo. Toque de novo se quiser tentar mesmo assim.";
+        document.getElementById("helper-nopc").scrollIntoView({ block: "start", behavior: "smooth" });
+        return;
+    }
     const code = hv.code.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (code.length !== 6) { hv.err.hidden = false; hv.err.classList.add("warn"); hv.err.textContent = "O código tem 6 letras e números."; return; }
     hv.err.hidden = true; hv.go.disabled = true;
@@ -2458,10 +2488,11 @@ function helperTick() {
 function startHelperView() {
     document.body.classList.add("helper-mode");
     document.title = "Ajudar a desenhar · bolinhas";
+    // celular/TV: aviso bem claro já na entrada; pra seguir, a pessoa precisa confirmar que entendeu
     if (!IS_PC) {
-        hv.setup.hidden = true;
         document.getElementById("helper-nopc").hidden = false;
-        return;
+        document.getElementById("helper-run-warn").hidden = false;
+        hv.go.textContent = "Ajudar mesmo assim";
     }
     const c = (qs.get("c") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
     hv.code.value = c;   // o código vem do link, mas só começa quando a pessoa clica
