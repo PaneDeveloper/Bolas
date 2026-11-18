@@ -171,7 +171,7 @@
 
         /* Modo distribuído */
         .chip[hidden] { display: none; }
-        .chip.link { text-decoration: none; }
+        .chip.link { text-decoration: none; pointer-events: auto; }   /* o topo ignora o mouse (pra não atrapalhar o pincel); os botões ligam de volta */
         .chip.link b { color: var(--ink); font-weight: 800; }
         .dist-row { position: relative; display: flex; padding: 0 6px 8px; }
         .dist-btn {
