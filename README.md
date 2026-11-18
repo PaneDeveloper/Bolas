@@ -1,4 +1,6 @@
 # Bolinhas distribuído
+# VERSÃO ONLINE DISPONÍVEL EM: https://bolas-p7rd.onrender.com/
+# LOBBY DE RENDERIZAÇÃO DISTRIBUÍDA EM https://bolas-p7rd.onrender.com/?ajudar - Requer código
 
 Versão baseada no `bolas.html` enviado. A animação continua no navegador; a extração dos pixels é processada pelo servidor Node.js.
 
